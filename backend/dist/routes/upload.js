@@ -48,6 +48,18 @@ const storage = multer_1.default.diskStorage({
         cb(null, filename);
     }
 });
+const getBaseUrl = (req) => {
+    if (process.env.BACKEND_URL) {
+        return process.env.BACKEND_URL.replace(/\/$/, ""); // Remove trailing slash if present
+    }
+    if (process.env.BASE_URL) {
+        return process.env.BASE_URL.replace(/\/$/, ""); // Remove trailing slash if present
+    }
+    // Fallback to request host info
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.get("host");
+    return `${protocol}://${host}`;
+};
 const upload = (0, multer_1.default)({ storage });
 // POST /api/upload - Single file upload
 router.post("/", upload.single("image"), (req, res, next) => {
@@ -57,7 +69,8 @@ router.post("/", upload.single("image"), (req, res, next) => {
         }
         const moduleCode = req.query.module || "others";
         const subFolder = getSubFolder(moduleCode);
-        const fileUrl = `http://localhost:5000/uploads/${subFolder}/${req.file.filename}`;
+        const baseUrl = getBaseUrl(req);
+        const fileUrl = `${baseUrl}/uploads/${subFolder}/${req.file.filename}`;
         return res.json({ success: true, url: fileUrl });
     }
     catch (error) {
@@ -73,7 +86,8 @@ router.post("/multiple", upload.array("images", 10), (req, res, next) => {
         }
         const moduleCode = req.query.module || "others";
         const subFolder = getSubFolder(moduleCode);
-        const urls = files.map((file) => `http://localhost:5000/uploads/${subFolder}/${file.filename}`);
+        const baseUrl = getBaseUrl(req);
+        const urls = files.map((file) => `${baseUrl}/uploads/${subFolder}/${file.filename}`);
         return res.json({ success: true, urls });
     }
     catch (error) {
