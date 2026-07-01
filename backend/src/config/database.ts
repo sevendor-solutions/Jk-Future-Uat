@@ -75,19 +75,33 @@ switch (dbType) {
         });
         break;
 
+    // case "postgres":
+    // default:
+    //     sequelize = new Sequelize({
+    //         dialect: "postgres",
+    //         host: process.env.PG_HOST || "localhost",
+    //         port: parseInt(process.env.PG_PORT || "5432"),
+    //         username: process.env.PG_USER || "postgres",
+    //         password: process.env.PG_PASSWORD || "doorstep",
+    //         database: process.env.PG_DB || "DoorstepDB",
+    //         logging: false,
+    //         models: models,
+    //     });
+    //     break;
     case "postgres":
-    default:
-        sequelize = new Sequelize({
-            dialect: "postgres",
-            host: process.env.PG_HOST || "localhost",
-            port: parseInt(process.env.PG_PORT || "5432"),
-            username: process.env.PG_USER || "postgres",
-            password: process.env.PG_PASSWORD || "doorstep",
-            database: process.env.PG_DB || "DoorstepDB",
-            logging: false,
-            models: models,
-        });
-        break;
+default:
+    sequelize = new Sequelize(process.env.DATABASE_URL!, {
+        dialect: "postgres",
+        logging: false,
+        models: models,
+        dialectOptions: {
+            ssl: {
+                require: true,
+                rejectUnauthorized: false,
+            },
+        },
+    });
+    break;
 }
 
 export default sequelize;
