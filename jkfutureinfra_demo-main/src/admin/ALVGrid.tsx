@@ -123,7 +123,7 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
     }
   };
 
-  const handleSelectRow = (key: string, row: Record<string, unknown>) => {
+  const handleSelectRow = (key: string, _row: Record<string, unknown>) => {
     const next = new Set(selectedKeys);
     if (next.has(key)) next.delete(key);
     else next.add(key);

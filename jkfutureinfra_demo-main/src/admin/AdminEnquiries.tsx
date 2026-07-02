@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Enquiry, EnquiryStatus } from '../types';
-import { Edit, Trash2, Phone, Mail, FileDown, Printer, Search } from 'lucide-react';
+import { Edit, Trash2, Phone, Mail, Search } from 'lucide-react';
 import { updateEnquiryStatus, deleteEnquiry } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -125,8 +125,8 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
     });
   }, [filteredByTypeEnquiries, search, filter, propertyFilter, dateRangeFilter]);
 
-  const handleExportCSV = (selectedRows?: Enquiry[]) => {
-    const dataToExport = selectedRows && selectedRows.length > 0 ? selectedRows : filteredEnquiries;
+  const handleExportCSV = (selectedRows?: Record<string, unknown>[]) => {
+    const dataToExport = selectedRows && selectedRows.length > 0 ? (selectedRows as unknown as Enquiry[]) : filteredEnquiries;
     const headers = ['Lead ID', 'Customer Name', 'Phone', 'Email', 'Assigned Property', 'Status', 'Date Submitted', 'Staff Notes'];
     const rows = dataToExport.map(enq => [
       enq.id,
@@ -151,10 +151,6 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
     onAddToast(`Exported ${dataToExport.length} leads to CSV.`, 'success');
   };
 
-  const handlePrintTable = () => {
-    window.print();
-  };
-
   const leadColumns: ALVColumn[] = [
     { key: 'name', label: 'Customer', render: (_v, row) => (
       <div>
@@ -163,18 +159,24 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
         <div style={{fontSize:'0.72rem',color:'#666',display:'flex',alignItems:'center',gap:'3px'}}><Mail size={10} style={{color:'#0854a0'}}/> {String(row.email)}</div>
       </div>
     )},
-    { key: 'projectName', label: 'Property', render: (_v, row) => (
-      <span>
-        <span style={{fontWeight:600,color:'#0854a0'}}>{String(row.projectName || '—')}</span>
-        {row.projectAssociation && <div style={{fontSize:'0.7rem',color:'#888'}}>({String(row.projectAssociation)})</div>}
-      </span>
-    )},
-    { key: 'message', label: 'Message Preview', render: (_v, row) => (
-      <div style={{maxWidth:'260px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:'0.78rem'}}>
-        {String(row.message || '—')}
-        {row.notes && <div style={{fontSize:'0.7rem',color:'#1e7e34',marginTop:'1px'}}><strong>Note:</strong> {String(row.notes)}</div>}
-      </div>
-    )},
+    { key: 'projectName', label: 'Property', render: (_v, row) => {
+      const r = row as any;
+      return (
+        <span>
+          <span style={{fontWeight:600,color:'#0854a0'}}>{String(r.projectName || '—')}</span>
+          {r.projectAssociation && <div style={{fontSize:'0.7rem',color:'#888'}}>({String(r.projectAssociation)})</div>}
+        </span>
+      );
+    }},
+    { key: 'message', label: 'Message Preview', render: (_v, row) => {
+      const r = row as any;
+      return (
+        <div style={{maxWidth:'260px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:'0.78rem'}}>
+          {String(r.message || '—')}
+          {r.notes && <div style={{fontSize:'0.7rem',color:'#1e7e34',marginTop:'1px'}}><strong>Note:</strong> {String(r.notes)}</div>}
+        </div>
+      );
+    }},
     { key: 'status', label: 'Status', render: (_v, row) => {
       const s = String(row.status);
       return <span className={`badge ${s==='Completed'?'badge-completed':s==='In Progress'?'badge-inprogress':'badge-new'}`}>{s}</span>;

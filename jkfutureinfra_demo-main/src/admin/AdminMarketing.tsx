@@ -278,14 +278,17 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     {
       key: 'category',
       label: 'Category',
-      render: (_v, row) => (
-        <div>
-          <span style={{ fontWeight: 700, color: 'var(--color-secondary, #6d28d9)' }}>{String(row.category)}</span>
-          {row.subCategory && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({String(row.subCategory)})</div>
-          )}
-        </div>
-      ),
+      render: (_v, row) => {
+        const r = row as any;
+        return (
+          <div>
+            <span style={{ fontWeight: 700, color: 'var(--color-secondary, #6d28d9)' }}>{String(r.category)}</span>
+            {r.subCategory && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({String(r.subCategory)})</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'location',

@@ -44,10 +44,6 @@ import {
   FileText, 
   MessageSquare, 
   Users, 
-  LogOut, 
-  Globe, 
-  UserCheck, 
-  ShieldCheck,
   Briefcase,
   Database,
   Menu,
@@ -471,7 +467,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.dataTransfer.setData('text/plain', String(index));
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = (e: React.DragEvent, _index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };

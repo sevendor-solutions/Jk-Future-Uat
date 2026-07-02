@@ -456,9 +456,6 @@ export const Marketing: React.FC<MarketingProps> = ({
             ) : (
               <div className="grid grid-3 gap-3">
                 {finalFilteredProjects.map(project => {
-                  const cleanConfigurations = project.availabilityDetails
-                    ? project.availabilityDetails.split(',').map(part => part.split(':')[0].trim()).join(', ')
-                    : '';
                   return (
                     <div key={project.id} className="property-card flex flex-col" style={{ height: '100%', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
                       <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>

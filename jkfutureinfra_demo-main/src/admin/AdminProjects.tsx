@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
 import { addProject, updateProject, deleteProject, uploadImage, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -268,12 +268,15 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
 
   const projectColumns: ALVColumn[] = [
     { key: 'name',       label: 'Project Name', render: (_v, row) => <strong style={{color:'#1d2d3e'}}>{String(row.name)}</strong> },
-    { key: 'category',  label: 'Category',     render: (_v, row) => (
-      <span>
-        <span style={{fontWeight:600, color:'var(--secondary)'}}>{String(row.category)}</span>
-        {row.subCategory && <span style={{fontSize:'0.72rem',color:'#888',marginLeft:'4px'}}>({String(row.subCategory)})</span>}
-      </span>
-    )},
+    { key: 'category',  label: 'Category',     render: (_v, row) => {
+      const r = row as any;
+      return (
+        <span>
+          <span style={{fontWeight:600, color:'var(--secondary)'}}>{String(r.category)}</span>
+          {r.subCategory && <span style={{fontSize:'0.72rem',color:'#888',marginLeft:'4px'}}>({String(r.subCategory)})</span>}
+        </span>
+      );
+    }},
     { key: 'location',  label: 'Location' },
     { key: 'priceRange',label: 'Price Range' },
     { key: 'status',    label: 'Status', render: (_v, row) => (

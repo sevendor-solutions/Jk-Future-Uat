@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Shield, Search, FileDown, RefreshCw, Calendar } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -54,8 +54,8 @@ export const AdminAuditLogs: React.FC<AdminAuditLogsProps> = ({ logs, onClearLog
       });
   }, [logs, search, actionFilter, statusFilter]);
 
-  const handleExportCSV = (selectedRows?: AuditLog[]) => {
-    const dataToExport = selectedRows && selectedRows.length > 0 ? selectedRows : filteredLogs;
+  const handleExportCSV = (selectedRows?: Record<string, unknown>[]) => {
+    const dataToExport = selectedRows && selectedRows.length > 0 ? (selectedRows as unknown as AuditLog[]) : filteredLogs;
     const headers = ['Log ID', 'Timestamp', 'User', 'Role', 'Action', 'Details', 'IP Address', 'Status'];
     const rows = dataToExport.map(log => [
       log.id,
