@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import type { Project, ProjectCategory, ProjectStatus, SiteCategory, City, LocationMaster } from '../types';
+import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
 import { Plus, Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
 import { addProject, updateProject, deleteProject, uploadImage, uploadMultipleImages } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminProjectsProps {
   projects: Project[];
   cities: City[];
   locations: LocationMaster[];
+  propertyTypes: PropertyType[];
+  facings: Facing[];
+  amenities: Amenity[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -16,6 +21,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   projects,
   cities,
   locations,
+  propertyTypes,
+  facings,
+  amenities,
   onRefresh,
   onAddToast,
   onConfirm
@@ -57,10 +65,27 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     }
   };
 
+  // Helper function to parse availability string (e.g. "2 BHK: 30, 3 BHK: 20")
+  const parseAvailabilityDetails = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length === 2) {
+        const type = parts[0].trim();
+        const count = parts[1].trim();
+        if (type && count !== '') {
+          result[type] = count;
+        }
+      }
+    });
+    return result;
+  };
+
   // Form states
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ProjectCategory>('Flats');
-  const [subCategory, setSubCategory] = useState<SiteCategory | ''>('');
+  const [subCategory, setSubCategory] = useState<string>('');
   const [status, setStatus] = useState<ProjectStatus>('Ongoing');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
@@ -68,19 +93,22 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [priceValue, setPriceValue] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
   const [highlightsText, setHighlightsText] = useState('');
-  const [amenitiesText, setAmenitiesText] = useState('');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [lat, setLat] = useState(17.7);
   const [lng, setLng] = useState(83.3);
   const [featured, setFeatured] = useState(false);
   
   // Custom filterable fields
-  const [facing, setFacing] = useState('East');
+  const [selectedFacings, setSelectedFacings] = useState<string[]>([]);
   const [city, setCity] = useState('Visakhapatnam');
   const [microLocation, setMicroLocation] = useState('');
   const [floors, setFloors] = useState(0);
   const [unitsCount, setUnitsCount] = useState(0);
-  const [availabilityDetails, setAvailabilityDetails] = useState('');
+  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
+  const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
+  const [width, setWidth] = useState('');
+  const [length, setLength] = useState('');
 
   const handleOpenAdd = () => {
     setEditingProject(null);
@@ -94,18 +122,21 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setPriceValue(5000000);
     setImageUrl('');
     setHighlightsText('Premium apartments\nExcellent security\n24/7 Power backup');
-    setAmenitiesText('Clubhouse, Gymnasium, Swimming Pool, Gated Security');
+    setSelectedAmenities(['Clubhouse', 'Gymnasium', 'Swimming Pool', 'Gated Security']);
     setLat(17.729);
     setLng(83.303);
     setFeatured(false);
     
-    setFacing('East');
+    setSelectedFacings(['East']);
     setCity(cities.length > 0 ? cities[0].name : 'Visakhapatnam');
     setMicroLocation('');
     setFloors(5);
     setUnitsCount(50);
-    setAvailabilityDetails('2 BHK: 20, 3 BHK: 30');
+    setSelectedPropertyTypes(['2 BHK', '3 BHK']);
+    setConfigValues({ '2 BHK': '20', '3 BHK': '30' });
     setSpecImage('');
+    setWidth('');
+    setLength('');
     
     setModalOpen(true);
   };
@@ -122,18 +153,28 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setPriceValue(proj.priceValue);
     setImageUrl(proj.images.join(', '));
     setHighlightsText(proj.highlights.join('\n'));
-    setAmenitiesText(proj.amenities.join(', '));
+    setSelectedAmenities(proj.amenities || []);
     setLat(proj.mapCoordinates.lat);
     setLng(proj.mapCoordinates.lng);
     setFeatured(proj.featured);
     
-    setFacing(proj.facing || 'East');
+    const initialFacings = proj.facing 
+      ? proj.facing.split(',').map(f => f.trim()).filter(Boolean) 
+      : [];
+    setSelectedFacings(initialFacings);
+    
     setCity(proj.city || 'Visakhapatnam');
     setMicroLocation(proj.microLocation || '');
     setFloors(proj.floors || 0);
     setUnitsCount(proj.unitsCount || 0);
-    setAvailabilityDetails(proj.availabilityDetails || '');
+    
+    const parsedValues = parseAvailabilityDetails(proj.availabilityDetails || '');
+    setSelectedPropertyTypes(Object.keys(parsedValues));
+    setConfigValues(parsedValues);
+    
     setSpecImage(proj.specImage || '');
+    setWidth(proj.width || '');
+    setLength(proj.length || '');
     
     setModalOpen(true);
   };
@@ -160,38 +201,54 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     // Split inputs
     const imagesArray = imageUrl.split(',').map(url => url.trim()).filter(Boolean);
     const highlightsArray = highlightsText.split('\n').map(h => h.trim()).filter(Boolean);
-    const amenitiesArray = amenitiesText.split(',').map(a => a.trim()).filter(Boolean);
+
+    // Serialize multi-select fields
+    const facingString = selectedFacings.join(', ');
+    const availabilityString = selectedPropertyTypes
+      .map(type => {
+        const val = configValues[type] !== undefined ? configValues[type] : '0';
+        return `${type}: ${val}`;
+      })
+      .join(', ');
 
     const projectData: Project = {
       id: editingProject ? editingProject.id : 'p_' + Date.now(),
       name,
       category,
-      subCategory: category === 'Sites' && subCategory ? (subCategory as SiteCategory) : undefined,
+      subCategory: category === 'Sites' && subCategory ? subCategory : undefined,
       status,
       location,
       description,
       images: imagesArray,
       highlights: highlightsArray,
-      amenities: amenitiesArray,
+      amenities: selectedAmenities,
       timeline: editingProject ? editingProject.timeline : [
         { id: 't_init', date: 'Jan 2026', title: 'Project Scaffolding', desc: 'Ground breaking ceremony and excavation starting.' }
       ],
-      floorPlans: editingProject ? editingProject.floorPlans : [
-        { id: 'f_init', title: 'Master Layout Plan', image: '' }
-      ],
+      floorPlans: (() => {
+        const plans = editingProject ? [...editingProject.floorPlans] : [
+          { id: 'f_init', title: 'Master Layout Plan', image: specImage || '' }
+        ];
+        if (plans.length > 0 && plans[0].id === 'f_init') {
+          plans[0] = { ...plans[0], image: specImage || '' };
+        }
+        return plans;
+      })(),
       priceRange,
       priceValue: Number(priceValue) || 0,
       paymentPlans: editingProject ? editingProject.paymentPlans : ['Booking Advance: 10%', 'Installments: 80%', 'Handover: 10%'],
       mapCoordinates: { lat: Number(lat) || 17.7, lng: Number(lng) || 83.3 },
       brochureUrl: '#',
       featured,
-      facing,
+      facing: facingString,
       city,
       microLocation,
       floors: Number(floors) || 0,
       unitsCount: Number(unitsCount) || 0,
-      availabilityDetails,
-      specImage: specImage || ''
+      availabilityDetails: availabilityString,
+      specImage: specImage || '',
+      width: category === 'Sites' ? width : undefined,
+      length: category === 'Sites' ? length : undefined
     };
 
     try {
@@ -209,73 +266,46 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     }
   };
 
+  const projectColumns: ALVColumn[] = [
+    { key: 'name',       label: 'Project Name', render: (_v, row) => <strong style={{color:'#1d2d3e'}}>{String(row.name)}</strong> },
+    { key: 'category',  label: 'Category',     render: (_v, row) => (
+      <span>
+        <span style={{fontWeight:600, color:'var(--secondary)'}}>{String(row.category)}</span>
+        {row.subCategory && <span style={{fontSize:'0.72rem',color:'#888',marginLeft:'4px'}}>({String(row.subCategory)})</span>}
+      </span>
+    )},
+    { key: 'location',  label: 'Location' },
+    { key: 'priceRange',label: 'Price Range' },
+    { key: 'status',    label: 'Status', render: (_v, row) => (
+      <span className={`badge badge-${String(row.status).toLowerCase()}`}>{String(row.status)}</span>
+    )},
+    { key: 'featured',  label: 'Featured', align: 'center', render: (_v, row) => (
+      row.featured
+        ? <span style={{color:'#1e7e34',display:'flex',alignItems:'center',gap:'4px',justifyContent:'center'}}><CheckCircle2 size={14}/> Yes</span>
+        : <span style={{color:'#888',display:'flex',alignItems:'center',gap:'4px',justifyContent:'center'}}><XCircle size={14}/> No</span>
+    )},
+    { key: '__actions', label: 'Actions', sortable: false, width: '90px', align: 'center', render: (_v, row) => (
+      <div className="admin-table-actions" style={{justifyContent:'center'}}>
+        <button onClick={() => handleOpenEdit(row as unknown as Project)} className="alv-toolbar-btn" title="Edit"><Edit2 size={13}/></button>
+        <button onClick={() => handleDelete(String(row.id), String(row.name))} className="alv-toolbar-btn" title="Delete" style={{color:'#dc2626',borderColor:'#dc2626'}}><Trash2 size={13}/></button>
+      </div>
+    )},
+  ];
+
   return (
     <div className="admin-projects-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>Manage Properties</h2>
-        <button onClick={handleOpenAdd} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-          <Plus size={16} /> Add New Project
-        </button>
-      </div>
-
-      {/* Projects Table */}
-      <div className="admin-table-wrapper">
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Location</th>
-              <th>Price Target</th>
-              <th>Status</th>
-              <th>Featured</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map(proj => (
-              <tr key={proj.id}>
-                <td className="font-semibold">{proj.name}</td>
-                <td>
-                  <span className="font-semibold text-secondary">{proj.category}</span>
-                  {proj.subCategory && <div className="text-xs text-muted">({proj.subCategory})</div>}
-                </td>
-                <td>{proj.location}</td>
-                <td>{proj.priceRange}</td>
-                <td>
-                  <span className={`badge badge-${proj.status.toLowerCase()}`}>{proj.status}</span>
-                </td>
-                <td>
-                  {proj.featured ? (
-                    <span className="text-success flex align-center gap-0.5"><CheckCircle2 size={16} /> Yes</span>
-                  ) : (
-                    <span className="text-muted flex align-center gap-0.5"><XCircle size={16} /> No</span>
-                  )}
-                </td>
-                <td>
-                  <div className="admin-table-actions">
-                    <button 
-                      onClick={() => handleOpenEdit(proj)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      title="Edit"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(proj.id, proj.name)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title="Manage Projects"
+        subtitle={`${projects.length} property listing${projects.length !== 1 ? 's' : ''}`}
+        columns={projectColumns}
+        data={projects as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onAdd={handleOpenAdd}
+        addLabel="Add Project"
+        onRefresh={onRefresh}
+        searchPlaceholder="Search by name, location, status..."
+        emptyText="No projects found. Click + Add Project to create one."
+      />
 
       {/* Modal Form */}
       {modalOpen && (
@@ -350,7 +380,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       <select 
                         className="form-control" 
                         value={subCategory}
-                        onChange={e => setSubCategory(e.target.value as SiteCategory)}
+                        onChange={e => setSubCategory(e.target.value)}
                         required
                       >
                         <option value="">Select Sub-category</option>
@@ -363,9 +393,36 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   )}
                 </div>
 
+                {category === 'Sites' && (
+                  <div className="grid grid-2 gap-2">
+                    <div className="form-group">
+                      <label className="form-label">Site Width (ft) *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. 30"
+                        value={width}
+                        onChange={e => setWidth(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Site Length (ft) *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. 40"
+                        value={length}
+                        onChange={e => setLength(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Section 2: Location & Address */}
                 <div className="modal-section-title">Location & Address</div>
-                <div className="grid grid-3 gap-2">
+                <div className="grid grid-2 gap-2">
                   <div className="form-group">
                     <label className="form-label">City Location *</label>
                     <select 
@@ -405,16 +462,38 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     </select>
                     {!city && <div className="text-xxs text-muted mt-0.5">Select city first</div>}
                   </div>
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Facing Direction</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. East, West, North East" 
-                      value={facing}
-                      onChange={e => setFacing(e.target.value)}
-                    />
+                <div className="form-group">
+                  <label className="form-label">Facing Directions * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(facings && facings.length > 0 ? facings : [
+                      { id: 'df1', name: 'East' },
+                      { id: 'df2', name: 'West' },
+                      { id: 'df3', name: 'North' },
+                      { id: 'df4', name: 'South' },
+                      { id: 'df5', name: 'North East' },
+                      { id: 'df6', name: 'North West' }
+                    ]).map(f => {
+                      const isChecked = selectedFacings.includes(f.name);
+                      return (
+                        <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedFacings(prev => [...prev, f.name]);
+                              } else {
+                                setSelectedFacings(prev => prev.filter(item => item !== f.name));
+                              }
+                            }}
+                            style={{ width: '16px', height: '16px', margin: 0 }}
+                          />
+                          {f.name}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -456,7 +535,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
 
                 {/* Section 3: Configurations & Pricing */}
                 <div className="modal-section-title">Configurations & Pricing</div>
-                <div className="grid grid-3 gap-2">
+                <div className="grid grid-2 gap-2">
                   <div className="form-group">
                     <label className="form-label">Total Floors</label>
                     <input 
@@ -478,16 +557,60 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       onChange={e => setUnitsCount(Number(e.target.value))}
                     />
                   </div>
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">BHK / Plot Configurations</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. 2 BHK: 30, 3 BHK: 20" 
-                      value={availabilityDetails}
-                      onChange={e => setAvailabilityDetails(e.target.value)}
-                    />
+                <div className="form-group">
+                  <label className="form-label">BHK / Plot Configurations * (Check config to enable quantity)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(propertyTypes && propertyTypes.length > 0 ? propertyTypes : [
+                      { id: 'dpt1', name: '1 BHK' },
+                      { id: 'dpt2', name: '2 BHK' },
+                      { id: 'dpt3', name: '3 BHK' },
+                      { id: 'dpt4', name: '4 BHK' },
+                      { id: 'dpt5', name: 'Plots' },
+                      { id: 'dpt6', name: 'Villa' }
+                    ]).map(pt => {
+                      const isChecked = selectedPropertyTypes.includes(pt.name);
+                      const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
+                      return (
+                        <div key={pt.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', flex: 1, userSelect: 'none' }}>
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPropertyTypes(prev => [...prev, pt.name]);
+                                  setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                } else {
+                                  setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
+                                  setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', margin: 0 }}
+                            />
+                            {pt.name}
+                          </label>
+                          <input 
+                            type="number"
+                            placeholder="Qty"
+                            className="form-control"
+                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                            value={countValue}
+                            disabled={!isChecked}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setConfigValues(prev => ({ ...prev, [pt.name]: val }));
+                            }}
+                            min="0"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -567,27 +690,45 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Highlights (One per line)</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="Highlight 1&#10;Highlight 2..." 
-                      value={highlightsText}
-                      onChange={e => setHighlightsText(e.target.value)}
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Highlights (One per line)</label>
+                  <textarea 
+                    className="form-control" 
+                    rows={3} 
+                    placeholder="Highlight 1&#10;Highlight 2..." 
+                    value={highlightsText}
+                    onChange={e => setHighlightsText(e.target.value)}
+                  />
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Amenities (Comma-separated)</label>
-                    <textarea 
-                      className="form-control" 
-                      rows={3} 
-                      placeholder="Clubhouse, Gym, Pool..." 
-                      value={amenitiesText}
-                      onChange={e => setAmenitiesText(e.target.value)}
-                    />
+                <div className="form-group">
+                  <label className="form-label">Amenities * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(amenities && amenities.length > 0 ? amenities : [
+                      { id: 'da1', name: 'Clubhouse' },
+                      { id: 'da2', name: 'Gymnasium' },
+                      { id: 'da3', name: 'Swimming Pool' },
+                      { id: 'da4', name: 'Gated Security' }
+                    ]).map(a => {
+                      const isChecked = selectedAmenities.includes(a.name);
+                      return (
+                        <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAmenities(prev => [...prev, a.name]);
+                              } else {
+                                setSelectedAmenities(prev => prev.filter(item => item !== a.name));
+                              }
+                            }}
+                            style={{ width: '16px', height: '16px', margin: 0 }}
+                          />
+                          {a.name}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 

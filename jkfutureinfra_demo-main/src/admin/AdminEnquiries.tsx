@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import type { Enquiry, EnquiryStatus } from '../types';
-import { Edit, Trash2, Phone, Mail } from 'lucide-react';
+import { Edit, Trash2, Phone, Mail, FileDown, Printer, Search } from 'lucide-react';
 import { updateEnquiryStatus, deleteEnquiry } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminEnquiriesProps {
   enquiries: Enquiry[];
@@ -24,6 +26,8 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
 }) => {
   const [filter, setFilter] = useState<string>('All');
   const [search, setSearch] = useState<string>('');
+  const [propertyFilter, setPropertyFilter] = useState<string>('All');
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>('All');
   
   // Review modal states
   const [reviewingEnq, setReviewingEnq] = useState<Enquiry | null>(selectedEnquiry);
@@ -81,115 +85,201 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
     });
   }, [enquiries, type]);
 
+  // Unique properties list for dropdown filter
+  const uniqueProperties = useMemo(() => {
+    const props = new Set<string>();
+    filteredByTypeEnquiries.forEach(e => {
+      if (e.projectName) props.add(e.projectName);
+    });
+    return ['All', ...Array.from(props)];
+  }, [filteredByTypeEnquiries]);
+
   const filteredEnquiries = useMemo(() => {
     return filteredByTypeEnquiries.filter(e => {
+      // Basic search
       const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase()) || 
                             e.email.toLowerCase().includes(search.toLowerCase()) ||
                             e.phone.includes(search) || 
                             (e.projectName && e.projectName.toLowerCase().includes(search.toLowerCase()));
+      
+      // Status filter
       const matchesStatus = filter === 'All' || e.status === filter;
-      return matchesSearch && matchesStatus;
+
+      // Property name filter
+      const matchesProperty = propertyFilter === 'All' || e.projectName === propertyFilter;
+
+      // Date range filter
+      let matchesDate = true;
+      if (dateRangeFilter !== 'All') {
+        const leadTime = new Date(e.date).getTime();
+        const now = Date.now();
+        const diffDays = (now - leadTime) / (1000 * 60 * 60 * 24);
+        if (dateRangeFilter === '7days') {
+          matchesDate = diffDays <= 7;
+        } else if (dateRangeFilter === '30days') {
+          matchesDate = diffDays <= 30;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesProperty && matchesDate;
     });
-  }, [filteredByTypeEnquiries, search, filter]);
+  }, [filteredByTypeEnquiries, search, filter, propertyFilter, dateRangeFilter]);
+
+  const handleExportCSV = (selectedRows?: Enquiry[]) => {
+    const dataToExport = selectedRows && selectedRows.length > 0 ? selectedRows : filteredEnquiries;
+    const headers = ['Lead ID', 'Customer Name', 'Phone', 'Email', 'Assigned Property', 'Status', 'Date Submitted', 'Staff Notes'];
+    const rows = dataToExport.map(enq => [
+      enq.id,
+      `"${enq.name.replace(/"/g, '""')}"`,
+      enq.phone,
+      enq.email,
+      `"${enq.projectName?.replace(/"/g, '""') || enq.projectAssociation}"`,
+      enq.status,
+      new Date(enq.date).toLocaleString(),
+      `"${(enq.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `sap_leads_${type || 'all'}_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onAddToast(`Exported ${dataToExport.length} leads to CSV.`, 'success');
+  };
+
+  const handlePrintTable = () => {
+    window.print();
+  };
+
+  const leadColumns: ALVColumn[] = [
+    { key: 'name', label: 'Customer', render: (_v, row) => (
+      <div>
+        <div style={{fontWeight:600,color:'#0f2b46'}}>{String(row.name)}</div>
+        <div style={{fontSize:'0.72rem',color:'#666',display:'flex',alignItems:'center',gap:'3px',marginTop:'2px'}}><Phone size={10} style={{color:'#0854a0'}}/> {String(row.phone)}</div>
+        <div style={{fontSize:'0.72rem',color:'#666',display:'flex',alignItems:'center',gap:'3px'}}><Mail size={10} style={{color:'#0854a0'}}/> {String(row.email)}</div>
+      </div>
+    )},
+    { key: 'projectName', label: 'Property', render: (_v, row) => (
+      <span>
+        <span style={{fontWeight:600,color:'#0854a0'}}>{String(row.projectName || '—')}</span>
+        {row.projectAssociation && <div style={{fontSize:'0.7rem',color:'#888'}}>({String(row.projectAssociation)})</div>}
+      </span>
+    )},
+    { key: 'message', label: 'Message Preview', render: (_v, row) => (
+      <div style={{maxWidth:'260px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:'0.78rem'}}>
+        {String(row.message || '—')}
+        {row.notes && <div style={{fontSize:'0.7rem',color:'#1e7e34',marginTop:'1px'}}><strong>Note:</strong> {String(row.notes)}</div>}
+      </div>
+    )},
+    { key: 'status', label: 'Status', render: (_v, row) => {
+      const s = String(row.status);
+      return <span className={`badge ${s==='Completed'?'badge-completed':s==='In Progress'?'badge-inprogress':'badge-new'}`}>{s}</span>;
+    }},
+    { key: 'date', label: 'Submitted', render: (_v, row) => (
+      <span style={{fontSize:'0.75rem',color:'#666'}}>{new Date(String(row.date)).toLocaleString()}</span>
+    )},
+    { key: '__actions', label: 'Actions', sortable: false, width: '80px', align: 'center', render: (_v, row) => (
+      <div className="admin-table-actions" style={{justifyContent:'center'}}>
+        <button onClick={() => handleOpenReview(row as unknown as Enquiry)} className="alv-toolbar-btn" title="Review Lead"><Edit size={13}/></button>
+        <button onClick={() => handleDelete(String(row.id), String(row.name))} className="alv-toolbar-btn" title="Delete" style={{color:'#dc2626',borderColor:'#dc2626'}}><Trash2 size={13}/></button>
+      </div>
+    )},
+  ];
+
+  const title = type === 'marketing' ? 'Marketing Leads Portfolio' : 'Project Leads Portfolio';
 
   return (
     <div className="admin-enquiries-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>{type === 'marketing' ? 'Marketing Leads' : 'Project Leads'}</h2>
-        <span className="badge badge-ongoing">{filteredByTypeEnquiries.filter(e => e.status === 'New').length} Pending Leads</span>
-      </div>
+      {/* SAP Fiori Smart Filter Bar */}
+      <div className="sap-smart-filterbar" style={{marginBottom:'0.75rem'}}>
+        <div className="sap-filterbar-fields">
+          <div className="sap-filterbar-field">
+            <span className="sap-filterbar-label">Search Criteria</span>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder="Search name, email, phone..." 
+                className="form-control"
+                style={{ padding: '0.45rem 0.5rem 0.45rem 2rem', fontSize: '0.85rem', marginBottom: 0, width: '100%' }}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            </div>
+          </div>
 
-      {/* Tabs & Search */}
-      <div className="glass-card py-2 px-2 flex justify-between align-center flex-wrap gap-2 mb-3">
-        <div className="gallery-tabs flex gap-1 flex-wrap mb-0">
-          {['All', 'New', 'In Progress', 'Completed'].map((tab, i) => (
-            <button 
-              key={i}
-              className={`gallery-tab-btn ${filter === tab ? 'active' : ''}`}
-              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-              onClick={() => setFilter(tab)}
+          <div className="sap-filterbar-field">
+            <span className="sap-filterbar-label">Property Association</span>
+            <select 
+              value={propertyFilter}
+              onChange={e => setPropertyFilter(e.target.value)}
+              className="form-control"
+              style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }}
             >
-              {tab} ({tab === 'All' ? filteredByTypeEnquiries.length : filteredByTypeEnquiries.filter(e => e.status === tab).length})
-            </button>
-          ))}
+              <option value="All">All Properties</option>
+              {uniqueProperties.filter(p => p !== 'All').map((prop, idx) => (
+                <option key={idx} value={prop}>{prop}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sap-filterbar-field">
+            <span className="sap-filterbar-label">Lead Status</span>
+            <select 
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              className="form-control"
+              style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="New">New Leads</option>
+              <option value="In Progress">Active Followups</option>
+              <option value="Completed">Deals Closed</option>
+            </select>
+          </div>
+
+          <div className="sap-filterbar-field">
+            <span className="sap-filterbar-label">Date Submitted</span>
+            <select 
+              value={dateRangeFilter}
+              onChange={e => setDateRangeFilter(e.target.value)}
+              className="form-control"
+              style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }}
+            >
+              <option value="All">All Time</option>
+              <option value="7days">Last 7 Days</option>
+              <option value="30days">Last 30 Days</option>
+            </select>
+          </div>
         </div>
-
-        <input 
-          type="text" 
-          placeholder="Search customer, project..." 
-          className="form-control"
-          style={{ width: '260px', padding: '0.5rem 0.75rem', fontSize: '0.9rem', marginBottom: 0 }}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
       </div>
 
-      {/* Leads Table */}
-      <div className="admin-table-wrapper">
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Property Association</th>
-              <th>Message Preview</th>
-              <th>Status</th>
-              <th>Submitted Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEnquiries.map(enq => (
-              <tr key={enq.id}>
-                <td>
-                  <div className="font-semibold">{enq.name}</div>
-                  <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}><Phone size={11} className="text-secondary" /> {enq.phone}</div>
-                  <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}><Mail size={11} className="text-secondary" /> {enq.email}</div>
-                </td>
-                <td>
-                  <span className="font-semibold text-secondary">{enq.projectName}</span>
-                  <div className="text-xs text-muted">({enq.projectAssociation})</div>
-                </td>
-                <td style={{ maxWidth: '280px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {enq.message}
-                </td>
-                <td>
-                  <span className={`badge badge-${enq.status.toLowerCase().replace(' ', '')}`}>{enq.status}</span>
-                </td>
-                <td>{new Date(enq.date).toLocaleString()}</td>
-                <td>
-                  <div className="admin-table-actions">
-                    <button 
-                      onClick={() => handleOpenReview(enq)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      title="Review Lead"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(enq.id, enq.name)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title={title}
+        subtitle={`${filteredEnquiries.length} leads`}
+        columns={leadColumns}
+        data={filteredEnquiries as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onExport={handleExportCSV}
+        onRefresh={onRefresh}
+        searchable={false}
+        emptyText="No leads matching selected filters."
+        pageSize={12}
+      />
 
       {/* Review Modal Form */}
       {reviewingEnq && (
-        <div className="modal-overlay" onClick={() => setReviewingEnq(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Review Customer Enquiry</h3>
+        <div className="modal-overlay" onClick={() => setReviewingEnq(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0, backgroundColor: '#f3f5f8', borderBottom: '1px solid var(--sap-border-color)' }}>Review Customer Enquiry</h3>
             
             <form onSubmit={handleSaveReview} className="p-3">
-              <div className="bg-light-soft p-2 mb-2" style={{ borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div className="grid grid-2 gap-2 text-sm">
+              <div className="bg-light-soft p-3 mb-3" style={{ borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: '#f8fafc' }}>
+                <div className="grid grid-2 gap-2 text-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <span className="font-bold">Customer:</span> {reviewingEnq.name}
                   </div>
@@ -203,18 +293,19 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
                     <span className="font-bold">Property:</span> {reviewingEnq.projectName}
                   </div>
                 </div>
-                <div className="mt-1 text-sm pt-1" style={{ borderTop: '1px dashed var(--border-color)' }}>
+                <div className="mt-2 text-sm pt-2" style={{ borderTop: '1px dashed var(--border-color)' }}>
                   <span className="font-bold">Message Details:</span>
-                  <p className="text-muted text-sm mt-0.5" style={{ whiteSpace: 'pre-wrap' }}>{reviewingEnq.message}</p>
+                  <p className="text-muted text-sm mt-1" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{reviewingEnq.message}</p>
                 </div>
               </div>
 
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Update Status *</label>
                 <select 
                   className="form-control" 
                   value={status}
                   onChange={e => setStatus(e.target.value as EnquiryStatus)}
+                  style={{ width: '100%', padding: '0.5rem' }}
                 >
                   <option value="New">New Lead</option>
                   <option value="In Progress">In Progress (Following up)</option>
@@ -222,7 +313,7 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label">Internal Follow-up Staff Notes</label>
                 <textarea 
                   className="form-control" 
@@ -230,12 +321,13 @@ export const AdminEnquiries: React.FC<AdminEnquiriesProps> = ({
                   placeholder="Type updates (e.g. Called client, scheduled site visit on Sunday...)" 
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem' }}
                 />
               </div>
 
-              <div className="flex gap-2 justify-end mt-2">
-                <button type="button" onClick={() => setReviewingEnq(null)} className="btn btn-outline btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm">Save Enquiry</button>
+              <div className="flex gap-2 justify-end mt-2" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setReviewingEnq(null)} className="btn btn-outline btn-sm" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Save Enquiry</button>
               </div>
             </form>
           </div>

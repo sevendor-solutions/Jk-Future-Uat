@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import type { City, LocationMaster } from '../types';
-import { Plus, Trash2, MapPin, Building } from 'lucide-react';
-import { addCity, deleteCity, addLocation, deleteLocation } from '../utils/db';
+import type { City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
+import { Trash2, MapPin, Building, Compass, Home, Sparkles } from 'lucide-react';
+import { addCity, deleteCity, addLocation, deleteLocation, addPropertyType, deletePropertyType, addFacing, deleteFacing, addAmenity, deleteAmenity } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminMastersProps {
   cities: City[];
   locations: LocationMaster[];
+  propertyTypes: PropertyType[];
+  facings: Facing[];
+  amenities: Amenity[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -14,12 +19,15 @@ interface AdminMastersProps {
 export const AdminMasters: React.FC<AdminMastersProps> = ({
   cities,
   locations,
+  propertyTypes = [],
+  facings = [],
+  amenities = [],
   onRefresh,
   onAddToast,
   onConfirm
 }) => {
-  // Tabs: 'cities' | 'locations'
-  const [activeSubTab, setActiveSubTab] = useState<'cities' | 'locations'>('cities');
+  // Tabs: 'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities'
+  const [activeSubTab, setActiveSubTab] = useState<'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities'>('cities');
 
   // Modal forms states
   const [cityModalOpen, setCityModalOpen] = useState(false);
@@ -28,6 +36,15 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [parentCityId, setParentCityId] = useState('');
+
+  const [propertyTypeModalOpen, setPropertyTypeModalOpen] = useState(false);
+  const [propertyTypeName, setPropertyTypeName] = useState('');
+
+  const [facingModalOpen, setFacingModalOpen] = useState(false);
+  const [facingName, setFacingName] = useState('');
+
+  const [amenityModalOpen, setAmenityModalOpen] = useState(false);
+  const [amenityName, setAmenityName] = useState('');
 
   // Handlers for Cities
   const handleOpenAddCity = () => {
@@ -162,6 +179,311 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
     }
   };
 
+  // Handlers for Property Types
+  const handleOpenAddPropertyType = () => {
+    setPropertyTypeName('');
+    setPropertyTypeModalOpen(true);
+  };
+
+  const handlePropertyTypeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!propertyTypeName.trim()) {
+      onAddToast('Please fill out the Property Type Name', 'error');
+      return;
+    }
+
+    const cleanName = propertyTypeName.trim();
+    const duplicate = propertyTypes.find(t => t.name.toLowerCase() === cleanName.toLowerCase());
+    if (duplicate) {
+      onAddToast(`Property Type "${cleanName}" already exists in the master database.`, 'error');
+      return;
+    }
+
+    let nextNum = 1;
+    propertyTypes.forEach(t => {
+      const match = t.id.match(/^pt(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num < 100000 && num >= nextNum) {
+          nextNum = num + 1;
+        }
+      }
+    });
+
+    const newType: PropertyType = {
+      id: `pt${nextNum}`,
+      name: cleanName
+    };
+
+    try {
+      await addPropertyType(newType);
+      onAddToast(`Property Type "${cleanName}" added successfully to masters.`, 'success');
+      setPropertyTypeModalOpen(false);
+      onRefresh();
+    } catch (error) {
+      onAddToast('Failed to add property type.', 'error');
+    }
+  };
+
+  const handlePropertyTypeDelete = async (id: string, name: string) => {
+    if (await onConfirm(`Are you sure you want to delete "${name}" from Property Types master?`)) {
+      try {
+        await deletePropertyType(id);
+        onAddToast(`Property Type "${name}" removed.`, 'success');
+        onRefresh();
+      } catch (error) {
+        onAddToast('Failed to delete property type.', 'error');
+      }
+    }
+  };
+
+  // Handlers for Facings
+  const handleOpenAddFacing = () => {
+    setFacingName('');
+    setFacingModalOpen(true);
+  };
+
+  const handleFacingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!facingName.trim()) {
+      onAddToast('Please fill out the Facing Name', 'error');
+      return;
+    }
+
+    const cleanName = facingName.trim();
+    const duplicate = facings.find(f => f.name.toLowerCase() === cleanName.toLowerCase());
+    if (duplicate) {
+      onAddToast(`Facing "${cleanName}" already exists in the master database.`, 'error');
+      return;
+    }
+
+    let nextNum = 1;
+    facings.forEach(f => {
+      const match = f.id.match(/^f(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num < 100000 && num >= nextNum) {
+          nextNum = num + 1;
+        }
+      }
+    });
+
+    const newFacing: Facing = {
+      id: `f${nextNum}`,
+      name: cleanName
+    };
+
+    try {
+      await addFacing(newFacing);
+      onAddToast(`Facing "${cleanName}" added successfully to masters.`, 'success');
+      setFacingModalOpen(false);
+      onRefresh();
+    } catch (error) {
+      onAddToast('Failed to add facing.', 'error');
+    }
+  };
+
+  const handleFacingDelete = async (id: string, name: string) => {
+    if (await onConfirm(`Are you sure you want to delete "${name}" from Facings master?`)) {
+      try {
+        await deleteFacing(id);
+        onAddToast(`Facing "${name}" removed.`, 'success');
+        onRefresh();
+      } catch (error) {
+        onAddToast('Failed to delete facing.', 'error');
+      }
+    }
+  };
+
+  // Handlers for Amenities
+  const handleOpenAddAmenity = () => {
+    setAmenityName('');
+    setAmenityModalOpen(true);
+  };
+
+  const handleAmenitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amenityName.trim()) {
+      onAddToast('Please fill out the Amenity Name', 'error');
+      return;
+    }
+
+    const cleanName = amenityName.trim();
+    const duplicate = amenities.find(a => a.name.toLowerCase() === cleanName.toLowerCase());
+    if (duplicate) {
+      onAddToast(`Amenity "${cleanName}" already exists in the master database.`, 'error');
+      return;
+    }
+
+    let nextNum = 1;
+    amenities.forEach(a => {
+      const match = a.id.match(/^a(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num < 100000 && num >= nextNum) {
+          nextNum = num + 1;
+        }
+      }
+    });
+
+    const newAmenity: Amenity = {
+      id: `a${nextNum}`,
+      name: cleanName
+    };
+
+    try {
+      await addAmenity(newAmenity);
+      onAddToast(`Amenity "${cleanName}" added successfully to masters.`, 'success');
+      setAmenityModalOpen(false);
+      onRefresh();
+    } catch (error) {
+      onAddToast('Failed to add amenity.', 'error');
+    }
+  };
+
+  const handleAmenityDelete = async (id: string, name: string) => {
+    if (await onConfirm(`Are you sure you want to delete "${name}" from Amenities master?`)) {
+      try {
+        await deleteAmenity(id);
+        onAddToast(`Amenity "${name}" removed.`, 'success');
+        onRefresh();
+      } catch (error) {
+        onAddToast('Failed to delete amenity.', 'error');
+      }
+    }
+  };
+
+  // Column definitions for the ALV Grids
+  const cityColumns: ALVColumn[] = [
+    { key: 'id', label: 'City ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'City Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: 'locationsCount',
+      label: 'Mapped Locations',
+      render: (_v, row) => {
+        const mappedCount = locations.filter(l => l.cityId === row.id).length;
+        return <span className="badge badge-completed">{mappedCount} Locations</span>;
+      }
+    },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handleCityDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete City"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
+  const locationColumns: ALVColumn[] = [
+    { key: 'id', label: 'Location ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'Location Area', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: 'cityId',
+      label: 'Parent City',
+      render: (val) => {
+        const parentCity = cities.find(c => c.id === val);
+        return (
+          <span className="badge badge-ongoing" style={{ textTransform: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Building size={12} /> {parentCity ? parentCity.name : 'Unknown City'}
+          </span>
+        );
+      }
+    },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handleLocationDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete Location"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
+  const propertyTypeColumns: ALVColumn[] = [
+    { key: 'id', label: 'Type ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'Property Type Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handlePropertyTypeDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete Property Type"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
+  const facingColumns: ALVColumn[] = [
+    { key: 'id', label: 'Facing ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'Facing Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handleFacingDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete Facing"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
+  const amenityColumns: ALVColumn[] = [
+    { key: 'id', label: 'Amenity ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'Amenity Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handleAmenityDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete Amenity"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
   return (
     <div className="admin-masters-view">
       <div className="flex justify-between align-center mb-3">
@@ -186,117 +508,103 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
           >
             <MapPin size={14} /> Locations List ({locations.length})
           </button>
+          <button 
+            className={`toggle-btn ${activeSubTab === 'propertyTypes' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('propertyTypes')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+          >
+            <Home size={14} /> Property Types ({propertyTypes.length})
+          </button>
+          <button 
+            className={`toggle-btn ${activeSubTab === 'facings' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('facings')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+          >
+            <Compass size={14} /> Facings ({facings.length})
+          </button>
+          <button 
+            className={`toggle-btn ${activeSubTab === 'amenities' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('amenities')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+          >
+            <Sparkles size={14} /> Amenities ({amenities.length})
+          </button>
         </div>
       </div>
 
       {/* CITIES TAB */}
       {activeSubTab === 'cities' && (
-        <div className="admin-card p-3 shadow-sm">
-          <div className="flex justify-between align-center mb-2">
-            <h3 className="text-primary font-bold my-0">Registered Cities</h3>
-            <button onClick={handleOpenAddCity} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-              <Plus size={16} /> Add City
-            </button>
-          </div>
-
-          <div className="admin-table-wrapper" style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}>
-            <table className="admin-table text-sm">
-              <thead>
-                <tr>
-                  <th>City ID</th>
-                  <th>City Name</th>
-                  <th>Mapped Locations</th>
-                  <th style={{ width: '100px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cities.map(c => {
-                  const mappedCount = locations.filter(l => l.cityId === c.id).length;
-                  return (
-                    <tr key={c.id}>
-                      <td className="font-mono text-xs">{c.id}</td>
-                      <td className="font-semibold text-primary">{c.name}</td>
-                      <td>
-                        <span className="badge badge-completed">{mappedCount} Locations</span>
-                      </td>
-                      <td>
-                        <button 
-                          onClick={() => handleCityDelete(c.id, c.name)}
-                          className="btn btn-sm btn-outline btn-icon-only"
-                          style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                          title="Delete City"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {cities.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-muted py-4">No cities registered. Click "Add City" to start.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ALVGrid
+          title="Registered Cities"
+          subtitle={`${cities.length} cities in master database`}
+          columns={cityColumns}
+          data={cities as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddCity}
+          addLabel="Add City"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search cities..."
+        />
       )}
 
       {/* LOCATIONS TAB */}
       {activeSubTab === 'locations' && (
-        <div className="admin-card p-3 shadow-sm">
-          <div className="flex justify-between align-center mb-2">
-            <h3 className="text-primary font-bold my-0">Micro Locations (Under Cities)</h3>
-            <button onClick={handleOpenAddLocation} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-              <Plus size={16} /> Create Location
-            </button>
-          </div>
+        <ALVGrid
+          title="Micro Locations"
+          subtitle="Locations grouped under registered cities"
+          columns={locationColumns}
+          data={locations as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddLocation}
+          addLabel="Create Location"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search locations..."
+        />
+      )}
 
-          <div className="admin-table-wrapper" style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}>
-            <table className="admin-table text-sm">
-              <thead>
-                <tr>
-                  <th>Location ID</th>
-                  <th>Location Area</th>
-                  <th>Parent City</th>
-                  <th style={{ width: '100px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {locations.map(l => {
-                  const parentCity = cities.find(c => c.id === l.cityId);
-                  return (
-                    <tr key={l.id}>
-                      <td className="font-mono text-xs">{l.id}</td>
-                      <td className="font-semibold text-primary">{l.name}</td>
-                      <td>
-                        <span className="badge badge-ongoing" style={{ textTransform: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Building size={12} /> {parentCity ? parentCity.name : 'Unknown City'}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          onClick={() => handleLocationDelete(l.id, l.name)}
-                          className="btn btn-sm btn-outline btn-icon-only"
-                          style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                          title="Delete Location"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {locations.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-muted py-4">No locations registered. Click "Create Location" to start.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {/* PROPERTY TYPES TAB */}
+      {activeSubTab === 'propertyTypes' && (
+        <ALVGrid
+          title="Property Types Master"
+          subtitle={`${propertyTypes.length} property types registered`}
+          columns={propertyTypeColumns}
+          data={propertyTypes as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddPropertyType}
+          addLabel="Add Property Type"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search property types..."
+        />
+      )}
+
+      {/* FACINGS TAB */}
+      {activeSubTab === 'facings' && (
+        <ALVGrid
+          title="Facings Master"
+          subtitle={`${facings.length} facings registered`}
+          columns={facingColumns}
+          data={facings as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddFacing}
+          addLabel="Add Facing"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search facings..."
+        />
+      )}
+
+      {/* AMENITIES TAB */}
+      {activeSubTab === 'amenities' && (
+        <ALVGrid
+          title="Amenities Master"
+          subtitle={`${amenities.length} amenities registered`}
+          columns={amenityColumns}
+          data={amenities as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddAmenity}
+          addLabel="Add Amenity"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search amenities..."
+        />
       )}
 
       {/* Add City Modal */}
@@ -362,6 +670,86 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
               <div className="flex gap-2 justify-end mt-2">
                 <button type="button" onClick={() => setLocationModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-secondary btn-sm">Create Location</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Add Property Type Modal */}
+      {propertyTypeModalOpen && (
+        <div className="modal-overlay" onClick={() => setPropertyTypeModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Register Property Type</h3>
+            <form onSubmit={handlePropertyTypeSubmit} className="p-3">
+              <div className="form-group">
+                <label className="form-label">Property Type Name *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. 3 BHK" 
+                  value={propertyTypeName}
+                  onChange={e => setPropertyTypeName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-2">
+                <button type="button" onClick={() => setPropertyTypeModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm">Create Type</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Facing Modal */}
+      {facingModalOpen && (
+        <div className="modal-overlay" onClick={() => setFacingModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Register Facing</h3>
+            <form onSubmit={handleFacingSubmit} className="p-3">
+              <div className="form-group">
+                <label className="form-label">Facing Direction Name *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. East" 
+                  value={facingName}
+                  onChange={e => setFacingName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-2">
+                <button type="button" onClick={() => setFacingModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm">Create Facing</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Amenity Modal */}
+      {amenityModalOpen && (
+        <div className="modal-overlay" onClick={() => setAmenityModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Register Amenity</h3>
+            <form onSubmit={handleAmenitySubmit} className="p-3">
+              <div className="form-group">
+                <label className="form-label">Amenity Name *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. Swimming Pool" 
+                  value={amenityName}
+                  onChange={e => setAmenityName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-2">
+                <button type="button" onClick={() => setAmenityModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm">Create Amenity</button>
               </div>
             </form>
           </div>

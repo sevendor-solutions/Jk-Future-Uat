@@ -1,7 +1,6 @@
-import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster } from '../types';
+import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
 
-//const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = sessionStorage.getItem('jk_infra_logged_user_token');
@@ -381,6 +380,84 @@ export const logoutUser = async (username: string): Promise<void> => {
     body: JSON.stringify({ username })
   });
   await handleResponse(res);
+};
+
+// Property Types
+export const getPropertyTypes = async (): Promise<PropertyType[]> => {
+  const res = await fetch(`${API_BASE_URL}/masters/property-types`);
+  return handleResponse(res);
+};
+
+export const addPropertyType = async (type: PropertyType): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/property-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(type)
+  });
+  await handleResponse(res);
+};
+
+export const deletePropertyType = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/property-types/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+// Facings
+export const getFacings = async (): Promise<Facing[]> => {
+  const res = await fetch(`${API_BASE_URL}/masters/facings`);
+  return handleResponse(res);
+};
+
+export const addFacing = async (facing: Facing): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/facings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(facing)
+  });
+  await handleResponse(res);
+};
+
+export const deleteFacing = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/facings/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+// Amenities
+export const getAmenities = async (): Promise<Amenity[]> => {
+  const res = await fetch(`${API_BASE_URL}/masters/amenities`);
+  return handleResponse(res);
+};
+
+export const addAmenity = async (amenity: Amenity): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/amenities`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(amenity)
+  });
+  await handleResponse(res);
+};
+
+export const deleteAmenity = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/masters/amenities/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
 };
 
 if (typeof window !== 'undefined') {

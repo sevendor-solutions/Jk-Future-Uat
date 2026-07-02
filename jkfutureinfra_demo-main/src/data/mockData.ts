@@ -1075,8 +1075,8 @@ export const INITIAL_USERS: User[] = [
     id: 'u1',
     username: 'admin',
     role: 'Admin',
-    name: 'J. K. Rama Rao',
-    email: 'ramarao@jkfutureinfra.com',
+    name: 'Admin',
+    email: 'admin@jkfutureinfra.com',
     password: 'admin123',
     allowedScreens: ['dashboard', 'projects', 'marketing', 'sites', 'gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters']
   },

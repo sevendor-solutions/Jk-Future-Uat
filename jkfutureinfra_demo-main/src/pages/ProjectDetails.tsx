@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { MapPin, Download, CheckSquare, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert } from 'lucide-react';
 import type { Project, Enquiry } from '../types';
 import { addEnquiry } from '../utils/db';
+import logoImg from '../assets/logo.png';
 
 interface ProjectDetailsProps {
   projectId: string;
@@ -101,9 +103,234 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
     }
   };
 
-  const handleDownloadBrochure = () => {
-    // Mock PDF download
-    const textContent = `
+  const handleDownloadBrochure = async () => {
+    if (!project) return;
+    onAddToast('Generating Brochure PDF, please wait...', 'info');
+
+    try {
+      const doc = new jsPDF();
+      
+      // Load logo
+      let logoData: { base64: string, ratio: number } | null = null;
+      try {
+        logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = logoImg;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              const ratio = img.naturalWidth / img.naturalHeight;
+              resolve({ base64, ratio });
+            } else {
+              reject(new Error('Canvas context error'));
+            }
+          };
+          img.onerror = (e) => reject(e);
+        });
+      } catch (e) {
+        console.warn('Logo loading failed:', e);
+      }
+
+      // Page 1: Cover Page
+      doc.setFillColor(15, 43, 70); // Brand Navy
+      doc.rect(0, 0, 210, 45, 'F');
+
+      // Brand Title
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('JK FUTURE INFRA PROJECTS PVT LTD', 105, 20, { align: 'center' });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.text('Premium Real Estate Showcase Brochure', 105, 32, { align: 'center' });
+
+      // Separator line
+      doc.setDrawColor(240, 90, 40); // Gold/Orange accent
+      doc.setLineWidth(2);
+      doc.line(15, 45, 195, 45);
+
+      // Render logo if loaded with exact aspect ratio preserved
+      let nextSectionY = 85;
+      if (logoData) {
+        const logoW = 95;
+        const logoH = logoW / logoData.ratio;
+        const logoX = (210 - logoW) / 2;
+        doc.addImage(logoData.base64, 'PNG', logoX, 50, logoW, logoH);
+        nextSectionY = 50 + logoH + 12;
+      }
+
+      // Project Title (pushed down based on logo dimensions)
+      doc.setTextColor(15, 43, 70);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(28);
+      doc.text(project.name, 20, nextSectionY);
+
+      // Location Subtitle
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(100, 110, 120);
+      doc.text(`Location: ${project.location}`, 20, nextSectionY + 10);
+
+      // Specs Table
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(20, nextSectionY + 20, 190, nextSectionY + 20);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 70);
+      doc.setFontSize(12);
+      doc.text('PROPERTY SPECIFICATIONS', 20, nextSectionY + 30);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(50, 50, 50);
+      
+      let currentY = nextSectionY + 40;
+      const drawSpecLine = (label: string, value: string) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, 20, currentY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, 65, currentY);
+        currentY += 9;
+      };
+
+      drawSpecLine('Category:', project.category);
+      if (project.subCategory) {
+        drawSpecLine('Sub-Category:', project.subCategory);
+      }
+      drawSpecLine('Price Range:', project.priceRange);
+      if (project.facing) {
+        drawSpecLine('Facing Directions:', project.facing);
+      }
+      if (project.floors !== undefined && project.floors > 0) {
+        drawSpecLine('Total Floors:', `G+${project.floors}`);
+      }
+      if (project.unitsCount) {
+        drawSpecLine('Total Units:', `${project.unitsCount}`);
+      }
+      if (project.uds) {
+        drawSpecLine('UDS Share:', `${project.uds} Sq. Yds`);
+      }
+      if (project.width && project.length) {
+        drawSpecLine('Dimensions:', `${project.width} x ${project.length} ft`);
+      }
+
+      // Highlights Box
+      currentY += 5;
+      doc.line(20, currentY, 190, currentY);
+      currentY += 10;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 70);
+      doc.text('KEY HIGHLIGHTS', 20, currentY);
+      currentY += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      project.highlights.forEach(h => {
+        if (currentY < 250) {
+          doc.text(`•  ${h}`, 22, currentY);
+          currentY += 7;
+        }
+      });
+
+      // Footer bar
+      doc.setFillColor(15, 43, 70);
+      doc.rect(0, 267, 210, 30, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('JK Future Infra - Building the Future', 105, 277, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Call: 9000553832, 7893963322  |  Email: jkfutureinfra@gmail.com', 105, 285, { align: 'center' });
+
+      // Add Project Images
+      if (project.images && project.images.length > 0) {
+        for (let idx = 0; idx < project.images.length; idx++) {
+          const imgUrl = project.images[idx];
+          try {
+            const base64Data = await new Promise<string>((resolve, reject) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.src = imgUrl;
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0);
+                  try {
+                    resolve(canvas.toDataURL('image/jpeg', 0.85));
+                  } catch (e) {
+                    reject(e);
+                  }
+                } else {
+                  reject(new Error('Canvas context error'));
+                }
+              };
+              img.onerror = (e) => reject(e);
+            });
+
+            doc.addPage();
+            
+            // Header bar
+            doc.setFillColor(15, 43, 70);
+            doc.rect(0, 0, 210, 15, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text(`${project.name} - Showcase Image ${idx + 1}`, 15, 10);
+            
+            // Draw image scaled
+            const tempImg = new Image();
+            tempImg.src = base64Data;
+            await new Promise((r) => { tempImg.onload = r; });
+            
+            const w = tempImg.naturalWidth;
+            const h = tempImg.naturalHeight;
+            const ratio = w / h;
+            
+            let fitW = 190;
+            let fitH = fitW / ratio;
+            
+            if (fitH > 240) {
+              fitH = 240;
+              fitW = fitH * ratio;
+            }
+            
+            const x = (210 - fitW) / 2;
+            const y = 20 + (240 - fitH) / 2;
+            
+            doc.addImage(base64Data, 'JPEG', x, y, fitW, fitH);
+            
+            // Footer numbering
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text(`Page ${idx + 2} of ${project.images.length + 1}`, 105, 287, { align: 'center' });
+          } catch (e) {
+            console.warn(`Could not load image ${idx}: ${imgUrl}`, e);
+          }
+        }
+      }
+
+      doc.save(`JK_Infra_${project.name.replace(/\s+/g, '_')}_Brochure.pdf`);
+      onAddToast('Brochure PDF downloaded successfully!', 'success');
+    } catch (err: any) {
+      console.error('PDF Generation failed:', err);
+      onAddToast('Failed to generate Brochure PDF. Downloading text version instead.', 'error');
+      
+      // Fallback
+      const textContent = `
 ========================================
    JK FUTURE INFRA PROJECTS PVT LTD
    PROJECT BROCHURE: ${project.name}
@@ -112,8 +339,7 @@ Status: ${project.status}
 Category: ${project.category}
 Location: ${project.location}
 Price Target: ${project.priceRange}
-AP-RERA Code: P03290021045
-
+${project.uds ? `UDS: ${project.uds} Sq. Yds\n` : ''}${project.width && project.length ? `Dimensions: ${project.width} x ${project.length} ft\n` : ''}
 --- Highlights ---
 ${project.highlights.join('\n')}
 
@@ -123,18 +349,17 @@ ${project.amenities.join(', ')}
 Thank you for downloading our brochure. 
 For bookings, call us at 9000553832, 7893963322
 Email: jkfutureinfra@gmail.com
-    `;
-
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `JK_Infra_${project.name.replace(/\s+/g, '_')}_Brochure.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    onAddToast('Brochure text file generated and downloaded successfully.', 'success');
+      `;
+      const blob = new Blob([textContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `JK_Infra_${project.name.replace(/\s+/g, '_')}_Brochure.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const whatsappUrl = `https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20am%20interested%20in%20your%20project%20"${encodeURIComponent(project.name)}"%20located%20at%20${encodeURIComponent(project.location)}.`;
@@ -189,6 +414,87 @@ Email: jkfutureinfra@gmail.com
             <p className="text-muted">{project.description}</p>
           </div>
 
+          {/* Specifications Card */}
+          <div className="detail-card admin-card mb-3">
+            <h3 className="border-bottom-title mb-2">Specifications & Configurations</h3>
+            <div className="grid grid-2 gap-2 mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              
+              {project.city && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>City:</span>
+                  <strong className="text-sm text-primary">{project.city}</strong>
+                </div>
+              )}
+
+              {project.microLocation && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Micro Location:</span>
+                  <strong className="text-sm text-primary">{project.microLocation}</strong>
+                </div>
+              )}
+
+              {project.facing && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Facing Directions:</span>
+                  <strong className="text-sm text-primary">{project.facing}</strong>
+                </div>
+              )}
+
+              {project.floors !== undefined && project.floors > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Floors:</span>
+                  <strong className="text-sm text-primary">G + {project.floors}</strong>
+                </div>
+              )}
+
+              {project.unitsCount !== undefined && project.unitsCount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Units:</span>
+                  <strong className="text-sm text-primary">{project.unitsCount}</strong>
+                </div>
+              )}
+
+              {project.uds && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>UDS Share:</span>
+                  <strong className="text-sm text-primary">{project.uds} Sq. Yds</strong>
+                </div>
+              )}
+
+              {project.width && project.length && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Plot Dimensions:</span>
+                  <strong className="text-sm text-primary">{project.width} x {project.length} ft</strong>
+                </div>
+              )}
+
+              {project.priceRange && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Target Price Range:</span>
+                  <strong className="text-sm text-secondary">{project.priceRange}</strong>
+                </div>
+              )}
+
+              {project.availabilityDetails && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', gridColumn: '1 / -1' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Availability & Quantities:</span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                    {project.availabilityDetails.split(',').map((part, idx) => {
+                      const [type, qty] = part.split(':').map(s => s.trim());
+                      return (
+                        <span key={idx} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.25rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '6px', border: '1px solid #d0e1f5', display: 'inline-flex', alignItems: 'center' }}>
+                          {type} : <span style={{ color: 'var(--secondary)', marginLeft: '4px', fontWeight: 700 }}>{qty || '0'} Units</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+
+
           {/* Highlights */}
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Key Highlights</h3>
@@ -231,8 +537,8 @@ Email: jkfutureinfra@gmail.com
                 ))}
               </div>
               <div className="floorplan-image-box text-center py-2 bg-light-soft" style={{ borderRadius: '8px' }}>
-                <img 
-                  src={project.floorPlans[floorPlanIdx].image} 
+                 <img 
+                  src={project.floorPlans[floorPlanIdx].image || project.specImage} 
                   alt={project.floorPlans[floorPlanIdx].title} 
                   style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', margin: '0 auto' }}
                 />
@@ -266,9 +572,13 @@ Email: jkfutureinfra@gmail.com
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Google Map Location</h3>
             <div className="detail-map-box" style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-              {/* Embed Google Maps or render detailed visual pin */}
+              {/* Embed Google Maps dynamically using coordinates or search address */}
               <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d121580.45781255755!2d83.21848135805561!3d17.729272304895697!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a39431389e6973f%3A0x92d9d203954986f1!2sVisakhapatnam%2C%20Andhra%20Pradesh!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin" 
+                src={`https://maps.google.com/maps?q=${
+                  project.mapCoordinates && project.mapCoordinates.lat && project.mapCoordinates.lng
+                    ? `${project.mapCoordinates.lat},${project.mapCoordinates.lng}`
+                    : encodeURIComponent(project.name + ', ' + project.location)
+                }&z=15&output=embed`} 
                 width="100%" 
                 height="100%" 
                 style={{ border: 0 }} 
@@ -343,7 +653,7 @@ Email: jkfutureinfra@gmail.com
                   className="form-control" 
                   placeholder="+91 99999 99999" 
                   value={phone}
-                  onChange={e => setPhone(e.target.value)}
+                  onChange={e => setPhone(e.target.value.replace(/[^0-9\s+\-()]/g, ''))}
                 />
                 {formErrors.phone && <div className="form-error">{formErrors.phone}</div>}
               </div>

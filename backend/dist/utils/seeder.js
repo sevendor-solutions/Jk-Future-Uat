@@ -10,10 +10,35 @@ const Enquiry_1 = require("../models/Enquiry");
 const User_1 = require("../models/User");
 const UserSessionLog_1 = require("../models/UserSessionLog");
 const JobApplication_1 = require("../models/JobApplication");
+const PropertyType_1 = require("../models/PropertyType");
+const Facing_1 = require("../models/Facing");
+const Amenity_1 = require("../models/Amenity");
 const INITIAL_CITIES = [
     { id: 'c1', name: 'Visakhapatnam' },
     { id: 'c2', name: 'Vijayawada' },
     { id: 'c3', name: 'Guntur' }
+];
+const INITIAL_PROPERTY_TYPES = [
+    { id: 'pt1', name: 'Plots' },
+    { id: 'pt2', name: '1 BHK' },
+    { id: 'pt3', name: '2 BHK' },
+    { id: 'pt4', name: '3 BHK' },
+    { id: 'pt5', name: '4 BHK' },
+    { id: 'pt6', name: 'Villa' }
+];
+const INITIAL_FACINGS = [
+    { id: 'f1', name: 'North' },
+    { id: 'f2', name: 'East' },
+    { id: 'f3', name: 'West' },
+    { id: 'f4', name: 'South' },
+    { id: 'f5', name: 'North East' },
+    { id: 'f6', name: 'North West' }
+];
+const INITIAL_AMENITIES = [
+    { id: 'a1', name: 'Clubhouse' },
+    { id: 'a2', name: 'Gymnasium' },
+    { id: 'a3', name: 'Swimming Pool' },
+    { id: 'a4', name: 'Gated Security' }
 ];
 const INITIAL_LOCATIONS = [
     { id: 'loc1', name: 'Madhurawada', cityId: 'c1' },
@@ -1196,6 +1221,24 @@ async function seedDatabase() {
                     // Ignore
                 }
             }
+        }
+        // 4. Seed Property Types
+        const propertyTypeCount = await PropertyType_1.PropertyType.count();
+        if (propertyTypeCount === 0) {
+            console.log("🌱 Seeding Property Types...");
+            await PropertyType_1.PropertyType.bulkCreate(INITIAL_PROPERTY_TYPES);
+        }
+        // 5. Seed Facings
+        const facingCount = await Facing_1.Facing.count();
+        if (facingCount === 0) {
+            console.log("🌱 Seeding Facings...");
+            await Facing_1.Facing.bulkCreate(INITIAL_FACINGS);
+        }
+        // 6. Seed Amenities
+        const amenityCount = await Amenity_1.Amenity.count();
+        if (amenityCount === 0) {
+            console.log("🌱 Seeding Amenities...");
+            await Amenity_1.Amenity.bulkCreate(INITIAL_AMENITIES);
         }
         console.log("✅ Database Seeding completed successfully!");
     }

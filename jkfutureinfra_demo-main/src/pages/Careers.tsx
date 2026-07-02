@@ -162,7 +162,7 @@ export const Careers: React.FC<CareersProps> = ({ onAddToast }) => {
                     className="form-control" 
                     placeholder="+91 99999 99999"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    onChange={e => setPhone(e.target.value.replace(/[^0-9\s+\-()]/g, ''))}
                     required
                   />
                 </div>

@@ -45,6 +45,9 @@ const Enquiry_1 = require("../models/Enquiry");
 const User_1 = require("../models/User");
 const JobApplication_1 = require("../models/JobApplication");
 const UserSessionLog_1 = require("../models/UserSessionLog");
+const PropertyType_1 = require("../models/PropertyType");
+const Facing_1 = require("../models/Facing");
+const Amenity_1 = require("../models/Amenity");
 dotenv.config();
 const dbType = (process.env.DB_TYPE || "postgres").toLowerCase();
 let sequelize;
@@ -57,7 +60,10 @@ const models = [
     Enquiry_1.Enquiry,
     User_1.User,
     JobApplication_1.JobApplication,
-    UserSessionLog_1.UserSessionLog
+    UserSessionLog_1.UserSessionLog,
+    PropertyType_1.PropertyType,
+    Facing_1.Facing,
+    Amenity_1.Amenity
 ];
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);
 switch (dbType) {
@@ -115,17 +121,31 @@ switch (dbType) {
     //     break;
     case "postgres":
     default:
-        sequelize = new sequelize_typescript_1.Sequelize(process.env.DATABASE_URL, {
-            dialect: "postgres",
-            logging: false,
-            models: models,
-            dialectOptions: {
-                ssl: {
-                    require: true,
-                    rejectUnauthorized: false,
+        if (process.env.DATABASE_URL) {
+            sequelize = new sequelize_typescript_1.Sequelize(process.env.DATABASE_URL, {
+                dialect: "postgres",
+                logging: false,
+                models: models,
+                dialectOptions: {
+                    ssl: {
+                        require: true,
+                        rejectUnauthorized: false,
+                    },
                 },
-            },
-        });
+            });
+        }
+        else {
+            sequelize = new sequelize_typescript_1.Sequelize({
+                dialect: "postgres",
+                host: process.env.PG_HOST || "localhost",
+                port: parseInt(process.env.PG_PORT || "5432"),
+                username: process.env.PG_USER || "postgres",
+                password: process.env.PG_PASSWORD || "Admin@123",
+                database: process.env.PG_DB || "JKFutureDB",
+                logging: false,
+                models: models,
+            });
+        }
         break;
 }
 exports.default = sequelize;

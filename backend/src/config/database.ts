@@ -11,6 +11,9 @@ import { Enquiry } from "../models/Enquiry";
 import { User } from "../models/User";
 import { JobApplication } from "../models/JobApplication";
 import { UserSessionLog } from "../models/UserSessionLog";
+import { PropertyType } from "../models/PropertyType";
+import { Facing } from "../models/Facing";
+import { Amenity } from "../models/Amenity";
 
 dotenv.config();
 
@@ -27,7 +30,10 @@ const models = [
     Enquiry,
     User,
     JobApplication,
-    UserSessionLog
+    UserSessionLog,
+    PropertyType,
+    Facing,
+    Amenity
 ];
 
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);
@@ -89,19 +95,32 @@ switch (dbType) {
     //     });
     //     break;
     case "postgres":
-default:
-    sequelize = new Sequelize(process.env.DATABASE_URL!, {
-        dialect: "postgres",
-        logging: false,
-        models: models,
-        dialectOptions: {
-            ssl: {
-                require: true,
-                rejectUnauthorized: false,
-            },
-        },
-    });
-    break;
+    default:
+        if (process.env.DATABASE_URL) {
+            sequelize = new Sequelize(process.env.DATABASE_URL, {
+                dialect: "postgres",
+                logging: false,
+                models: models,
+                dialectOptions: {
+                    ssl: {
+                        require: true,
+                        rejectUnauthorized: false,
+                    },
+                },
+            });
+        } else {
+            sequelize = new Sequelize({
+                dialect: "postgres",
+                host: process.env.PG_HOST || "localhost",
+                port: parseInt(process.env.PG_PORT || "5432"),
+                username: process.env.PG_USER || "postgres",
+                password: process.env.PG_PASSWORD || "Admin@123",
+                database: process.env.PG_DB || "JKFutureDB",
+                logging: false,
+                models: models,
+            });
+        }
+        break;
 }
 
 export default sequelize;

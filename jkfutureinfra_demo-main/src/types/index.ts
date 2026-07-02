@@ -1,4 +1,4 @@
-export type ProjectCategory = 'Flats' | 'Villas' | 'Individual Houses' | 'Sites';
+export type ProjectCategory = 'Flats' | 'Villas' | 'Individual Houses' | 'Sites' | 'Duplex';
 
 export type SiteCategory = 'Development Sites' | 'Panchayati Approved Sites' | 'VUDA Approved Sites' | 'Ventures';
 
@@ -27,7 +27,7 @@ export interface Project {
   id: string;
   name: string;
   category: ProjectCategory;
-  subCategory?: SiteCategory; // Relevant when category is 'Sites'
+  subCategory?: string; // Relevant when category is 'Sites' or residential properties
   status: ProjectStatus;
   location: string;
   description: string;
@@ -55,6 +55,9 @@ export interface Project {
   unitsCount?: number;
   availabilityDetails?: string;
   specImage?: string;
+  uds?: string;
+  width?: string;
+  length?: string;
 }
 
 
@@ -114,6 +117,21 @@ export interface LocationMaster {
   id: string;
   name: string;
   cityId: string;
+}
+
+export interface PropertyType {
+  id: string;
+  name: string;
+}
+
+export interface Facing {
+  id: string;
+  name: string;
+}
+
+export interface Amenity {
+  id: string;
+  name: string;
 }
 
 export interface JobApplication {

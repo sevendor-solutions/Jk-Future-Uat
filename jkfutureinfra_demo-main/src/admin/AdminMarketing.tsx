@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import type { Project, ProjectCategory, ProjectStatus, SiteCategory, City, LocationMaster } from '../types';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
+import { Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
 import { addMarketing, updateMarketing, deleteMarketing, uploadImage } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminMarketingProps {
   marketing: Project[];
   cities: City[];
   locations: LocationMaster[];
+  propertyTypes: PropertyType[];
+  facings: Facing[];
+  amenities: Amenity[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -16,6 +21,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   marketing,
   cities,
   locations,
+  propertyTypes,
+  facings,
+  amenities,
   onRefresh,
   onAddToast,
   onConfirm
@@ -55,10 +63,27 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     }
   };
 
+  // Helper function to parse availability string (e.g. "2 BHK: 30, 3 BHK: 20")
+  const parseAvailabilityDetails = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length === 2) {
+        const type = parts[0].trim();
+        const count = parts[1].trim();
+        if (type && count !== '') {
+          result[type] = count;
+        }
+      }
+    });
+    return result;
+  };
+
   // Form states
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ProjectCategory>('Flats');
-  const [subCategory, setSubCategory] = useState<SiteCategory | ''>('');
+  const [subCategory, setSubCategory] = useState<string>('');
   const [status, setStatus] = useState<ProjectStatus>('Ongoing');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
@@ -66,19 +91,23 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [priceValue, setPriceValue] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
   const [highlightsText, setHighlightsText] = useState('');
-  const [amenitiesText, setAmenitiesText] = useState('');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [lat, setLat] = useState(17.7);
   const [lng, setLng] = useState(83.3);
   const [featured, setFeatured] = useState(false);
 
   // Custom filterable fields
-  const [facing, setFacing] = useState('East');
+  const [selectedFacings, setSelectedFacings] = useState<string[]>([]);
   const [city, setCity] = useState('Visakhapatnam');
   const [microLocation, setMicroLocation] = useState('');
   const [floors, setFloors] = useState(0);
   const [unitsCount, setUnitsCount] = useState(0);
-  const [availabilityDetails, setAvailabilityDetails] = useState('');
+  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
+  const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
+  const [uds, setUds] = useState('');
+  const [width, setWidth] = useState('');
+  const [length, setLength] = useState('');
 
   const handleOpenAdd = () => {
     setEditingProperty(null);
@@ -92,18 +121,22 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setPriceValue(6500000);
     setImageUrl('');
     setHighlightsText('Modern urban living\nRERA Approved\nPremium quality specifications');
-    setAmenitiesText('Clubhouse, Swimming Pool, Gated Security');
+    setSelectedAmenities(['Clubhouse', 'Gymnasium', 'Swimming Pool', 'Gated Security']);
     setLat(17.702);
     setLng(83.238);
     setFeatured(false);
 
-    setFacing('East');
+    setSelectedFacings(['East']);
     setCity('Visakhapatnam');
     setMicroLocation('Sheela Nagar');
     setFloors(10);
-    setUnitsCount(120);
-    setAvailabilityDetails('2 BHK: 30, 3 BHK: 20');
+    setUnitsCount(0);
+    setSelectedPropertyTypes(['2 BHK', '3 BHK']);
+    setConfigValues({ '2 BHK': '30', '3 BHK': '20' });
     setSpecImage('');
+    setUds('');
+    setWidth('');
+    setLength('');
 
     setModalOpen(true);
   };
@@ -120,18 +153,29 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setPriceValue(prop.priceValue);
     setImageUrl(prop.images.join(', '));
     setHighlightsText(prop.highlights.join('\n'));
-    setAmenitiesText(prop.amenities.join(', '));
+    setSelectedAmenities(prop.amenities || []);
     setLat(prop.mapCoordinates.lat);
     setLng(prop.mapCoordinates.lng);
     setFeatured(prop.featured);
 
-    setFacing(prop.facing || 'East');
+    const initialFacings = prop.facing 
+      ? prop.facing.split(',').map(f => f.trim()).filter(Boolean) 
+      : [];
+    setSelectedFacings(initialFacings);
+    
     setCity(prop.city || 'Visakhapatnam');
     setMicroLocation(prop.microLocation || '');
     setFloors(prop.floors || 0);
     setUnitsCount(prop.unitsCount || 0);
-    setAvailabilityDetails(prop.availabilityDetails || '');
+    
+    const parsedValues = parseAvailabilityDetails(prop.availabilityDetails || '');
+    setSelectedPropertyTypes(Object.keys(parsedValues));
+    setConfigValues(parsedValues);
+    
     setSpecImage(prop.specImage || '');
+    setUds(prop.uds || '');
+    setWidth(prop.width || '');
+    setLength(prop.length || '');
 
     setModalOpen(true);
   };
@@ -157,38 +201,55 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
     const imagesArray = imageUrl.split(',').map(url => url.trim()).filter(Boolean);
     const highlightsArray = highlightsText.split('\n').map(h => h.trim()).filter(Boolean);
-    const amenitiesArray = amenitiesText.split(',').map(a => a.trim()).filter(Boolean);
+
+    // Serialize multi-select fields
+    const facingString = selectedFacings.join(', ');
+    const availabilityString = selectedPropertyTypes
+      .map(type => {
+        const val = configValues[type] !== undefined ? configValues[type] : '0';
+        return `${type}: ${val}`;
+      })
+      .join(', ');
 
     const propertyData: Project = {
       id: editingProperty ? editingProperty.id : 'm_' + Date.now(),
       name,
       category,
-      subCategory: category === 'Sites' && subCategory ? (subCategory as SiteCategory) : undefined,
+      subCategory: subCategory ? subCategory : undefined,
       status,
       location,
       description,
       images: imagesArray,
       highlights: highlightsArray,
-      amenities: amenitiesArray,
+      amenities: selectedAmenities,
       timeline: editingProperty ? editingProperty.timeline : [
         { id: 't_init', date: 'Jan 2026', title: 'Plotting & Inception', desc: 'Venture registration and layout development.' }
       ],
-      floorPlans: editingProperty ? editingProperty.floorPlans : [
-        { id: 'f_init', title: 'Master Layout Plan', image: '' }
-      ],
+      floorPlans: (() => {
+        const plans = editingProperty ? [...editingProperty.floorPlans] : [
+          { id: 'f_init', title: 'Master Layout Plan', image: specImage || '' }
+        ];
+        if (plans.length > 0 && plans[0].id === 'f_init') {
+          plans[0] = { ...plans[0], image: specImage || '' };
+        }
+        return plans;
+      })(),
       priceRange,
       priceValue: Number(priceValue) || 0,
       paymentPlans: editingProperty ? editingProperty.paymentPlans : ['Booking Advance: 10%', 'Milestones: 60%', 'Registration: 30%'],
       mapCoordinates: { lat: Number(lat) || 17.7, lng: Number(lng) || 83.3 },
       brochureUrl: '#',
       featured,
-      facing,
+      facing: facingString,
       city,
       microLocation,
       floors: Number(floors) || 0,
       unitsCount: Number(unitsCount) || 0,
-      availabilityDetails,
-      specImage: specImage || ''
+      availabilityDetails: availabilityString,
+      specImage: specImage || '',
+      uds: category === 'Flats' ? uds : undefined,
+      width: category === 'Sites' ? width : undefined,
+      length: category === 'Sites' ? length : undefined
     };
 
     try {
@@ -206,81 +267,103 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     }
   };
 
+  const marketingColumns: ALVColumn[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      render: (_v, row) => (
+        <span style={{ fontWeight: 600, color: 'var(--text-dark)' }}>{String(row.name)}</span>
+      ),
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (_v, row) => (
+        <div>
+          <span style={{ fontWeight: 700, color: 'var(--color-secondary, #6d28d9)' }}>{String(row.category)}</span>
+          {row.subCategory && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({String(row.subCategory)})</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      render: (_v, row) => (
+        <div>
+          <div>{String(row.location)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{String(row.city ?? '')}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'priceRange',
+      label: 'Price Range',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_v, row) => (
+        <span className={`badge badge-${String(row.status).toLowerCase()}`}>{String(row.status)}</span>
+      ),
+    },
+    {
+      key: 'featured',
+      label: 'Featured',
+      render: (_v, row) =>
+        row.featured ? (
+          <span style={{ color: 'var(--color-success, #16a34a)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <CheckCircle2 size={16} /> Yes
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <XCircle size={16} /> No
+          </span>
+        ),
+    },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '90px',
+      align: 'center',
+      render: (_v, row) => (
+        <div className="admin-table-actions" style={{ justifyContent: 'center' }}>
+          <button
+            onClick={() => handleOpenEdit(row as unknown as Project)}
+            className="alv-toolbar-btn"
+            title="Edit"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={() => handleDeleteClick(String(row.id), String(row.name))}
+            className="alv-toolbar-btn"
+            title="Delete"
+            style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="admin-projects-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>Manage Marketing Showcase</h2>
-        <button onClick={handleOpenAdd} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-          <Plus size={16} /> Add Marketing Property
-        </button>
-      </div>
-
-      {/* Marketing Table */}
-      <div className="admin-table-wrapper">
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Location / City</th>
-              <th>Price Target</th>
-              <th>Status</th>
-              <th>Featured</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {marketing.map(prop => (
-              <tr key={prop.id}>
-                <td className="font-semibold">{prop.name}</td>
-                <td>
-                  <span className="font-semibold text-secondary">{prop.category}</span>
-                  {prop.subCategory && <div className="text-xs text-muted">({prop.subCategory})</div>}
-                </td>
-                <td>
-                  <div>{prop.location}</div>
-                  <div className="text-xs text-muted font-semibold">{prop.city}</div>
-                </td>
-                <td>{prop.priceRange}</td>
-                <td>
-                  <span className={`badge badge-${prop.status.toLowerCase()}`}>{prop.status}</span>
-                </td>
-                <td>
-                  {prop.featured ? (
-                    <span className="text-success flex align-center gap-0.5"><CheckCircle2 size={16} /> Yes</span>
-                  ) : (
-                    <span className="text-muted flex align-center gap-0.5"><XCircle size={16} /> No</span>
-                  )}
-                </td>
-                <td>
-                  <div className="admin-table-actions">
-                    <button
-                      onClick={() => handleOpenEdit(prop)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      title="Edit"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(prop.id, prop.name)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {marketing.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center py-4 text-muted">No marketing properties created yet. Click "Add Marketing Property" to insert one.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title="Manage Marketing"
+        subtitle={`${marketing.length} ${marketing.length === 1 ? 'item' : 'items'}`}
+        columns={marketingColumns}
+        data={marketing as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onAdd={handleOpenAdd}
+        addLabel="Add Marketing"
+        onRefresh={onRefresh}
+        searchPlaceholder="Search marketing..."
+        emptyText="No marketing properties created yet."
+      />
 
       {/* Modal Form */}
       {modalOpen && (
@@ -307,31 +390,16 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
               <div className="modal-body-premium">
                 {/* Section 1: Basic Specifications */}
                 <div className="modal-section-title">Basic Specifications</div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Property Title *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. JK Whispering Pines"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Project Status *</label>
-                    <select
-                      className="form-control"
-                      value={status}
-                      onChange={e => setStatus(e.target.value as ProjectStatus)}
-                    >
-                      <option value="Ongoing">Ongoing</option>
-                      <option value="Upcoming">Upcoming</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Property Title *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. JK Whispering Pines"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-2 gap-2">
@@ -340,11 +408,16 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     <select
                       className="form-control"
                       value={category}
-                      onChange={e => setCategory(e.target.value as ProjectCategory)}
+                      onChange={e => {
+                        const newCat = e.target.value as ProjectCategory;
+                        setCategory(newCat);
+                        setSubCategory('');
+                      }}
                     >
                       <option value="Flats">Flats</option>
                       <option value="Villas">Villas</option>
                       <option value="Individual Houses">Individual Houses</option>
+                      <option value="Duplex">Duplex</option>
                       <option value="Sites">Sites / Plots</option>
                     </select>
                   </div>
@@ -355,7 +428,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       <select
                         className="form-control"
                         value={subCategory}
-                        onChange={e => setSubCategory(e.target.value as SiteCategory)}
+                        onChange={e => setSubCategory(e.target.value)}
                         required
                       >
                         <option value="">Select subCategory</option>
@@ -365,8 +438,63 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         <option value="Ventures">Ventures</option>
                       </select>
                     </div>
+                  ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
+                    <div className="form-group">
+                      <label className="form-label">Residential subCategory Classification *</label>
+                      <select
+                        className="form-control"
+                        value={subCategory}
+                        onChange={e => setSubCategory(e.target.value)}
+                        required
+                      >
+                        <option value="">Select subCategory</option>
+                        <option value="Under Construction">Under Construction</option>
+                        <option value="Ready to Move">Ready to Move</option>
+                      </select>
+                    </div>
                   ) : null}
                 </div>
+
+                {category === 'Flats' && (
+                  <div className="form-group">
+                    <label className="form-label">UDS (Sq. Yds) *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 35"
+                      value={uds}
+                      onChange={e => setUds(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {category === 'Sites' && (
+                  <div className="grid grid-2 gap-2">
+                    <div className="form-group">
+                      <label className="form-label">Site Width (ft) *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. 30"
+                        value={width}
+                        onChange={e => setWidth(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Site Length (ft) *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. 40"
+                        value={length}
+                        onChange={e => setLength(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Section 2: Location & Address */}
                 <div className="modal-section-title">Location &amp; Address</div>
@@ -423,6 +551,39 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Facing Directions * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(facings && facings.length > 0 ? facings : [
+                      { id: 'df1', name: 'East' },
+                      { id: 'df2', name: 'West' },
+                      { id: 'df3', name: 'North' },
+                      { id: 'df4', name: 'South' },
+                      { id: 'df5', name: 'North East' },
+                      { id: 'df6', name: 'North West' }
+                    ]).map(f => {
+                      const isChecked = selectedFacings.includes(f.name);
+                      return (
+                        <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedFacings(prev => [...prev, f.name]);
+                              } else {
+                                setSelectedFacings(prev => prev.filter(item => item !== f.name));
+                              }
+                            }}
+                            style={{ width: '16px', height: '16px', margin: 0 }}
+                          />
+                          {f.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="grid grid-2 gap-2">
                   <div className="form-group">
                     <label className="form-label">Latitude Offset</label>
@@ -449,7 +610,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
                 {/* Section 3: Configurations & Pricing */}
                 <div className="modal-section-title">Configurations &amp; Pricing</div>
-                <div className="grid grid-3 gap-2">
+                {category !== 'Sites' && (
                   <div className="form-group">
                     <label className="form-label">Total Floors</label>
                     <input
@@ -459,31 +620,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       onChange={e => setFloors(Number(e.target.value))}
                     />
                   </div>
+                )}
 
-                  <div className="form-group">
-                    <label className="form-label">Total Units Count</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={unitsCount}
-                      onChange={e => setUnitsCount(Number(e.target.value))}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Property Facing (if Sites)</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. East, West"
-                      value={facing}
-                      disabled={category !== 'Sites'}
-                      onChange={e => setFacing(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-3 gap-2">
+                <div className="grid grid-2 gap-2">
                   <div className="form-group">
                     <label className="form-label">Price Range Text *</label>
                     <input
@@ -507,16 +646,60 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       required
                     />
                   </div>
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Availability details badge</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Plots: 35 or 3 BHK: 12"
-                      value={availabilityDetails}
-                      onChange={e => setAvailabilityDetails(e.target.value)}
-                    />
+                <div className="form-group">
+                  <label className="form-label">BHK / Plot Configurations * (Check config to enable quantity)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(propertyTypes && propertyTypes.length > 0 ? propertyTypes : [
+                      { id: 'dpt1', name: '1 BHK' },
+                      { id: 'dpt2', name: '2 BHK' },
+                      { id: 'dpt3', name: '3 BHK' },
+                      { id: 'dpt4', name: '4 BHK' },
+                      { id: 'dpt5', name: 'Plots' },
+                      { id: 'dpt6', name: 'Villa' }
+                    ]).map(pt => {
+                      const isChecked = selectedPropertyTypes.includes(pt.name);
+                      const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
+                      return (
+                        <div key={pt.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', flex: 1, userSelect: 'none' }}>
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPropertyTypes(prev => [...prev, pt.name]);
+                                  setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                } else {
+                                  setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
+                                  setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', margin: 0 }}
+                            />
+                            {pt.name}
+                          </label>
+                          <input 
+                            type="number"
+                            placeholder="Qty"
+                            className="form-control"
+                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                            value={countValue}
+                            disabled={!isChecked}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setConfigValues(prev => ({ ...prev, [pt.name]: val }));
+                            }}
+                            min="0"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -572,27 +755,45 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Highlights (One per line)</label>
-                    <textarea
-                      className="form-control"
-                      rows={3}
-                      placeholder="Highlights list..."
-                      value={highlightsText}
-                      onChange={e => setHighlightsText(e.target.value)}
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Highlights (One per line)</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Highlights list..."
+                    value={highlightsText}
+                    onChange={e => setHighlightsText(e.target.value)}
+                  />
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Amenities (Comma separated)</label>
-                    <textarea
-                      className="form-control"
-                      rows={3}
-                      placeholder="Clubhouse, BT Roads, Water Connection..."
-                      value={amenitiesText}
-                      onChange={e => setAmenitiesText(e.target.value)}
-                    />
+                <div className="form-group">
+                  <label className="form-label">Amenities * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                    {(amenities && amenities.length > 0 ? amenities : [
+                      { id: 'da1', name: 'Clubhouse' },
+                      { id: 'da2', name: 'Gymnasium' },
+                      { id: 'da3', name: 'Swimming Pool' },
+                      { id: 'da4', name: 'Gated Security' }
+                    ]).map(a => {
+                      const isChecked = selectedAmenities.includes(a.name);
+                      return (
+                        <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAmenities(prev => [...prev, a.name]);
+                              } else {
+                                setSelectedAmenities(prev => prev.filter(item => item !== a.name));
+                              }
+                            }}
+                            style={{ width: '16px', height: '16px', margin: 0 }}
+                          />
+                          {a.name}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 

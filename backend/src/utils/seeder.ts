@@ -7,11 +7,39 @@ import { Enquiry } from "../models/Enquiry";
 import { User } from "../models/User";
 import { UserSessionLog } from "../models/UserSessionLog";
 import { JobApplication } from "../models/JobApplication";
+import { PropertyType } from "../models/PropertyType";
+import { Facing } from "../models/Facing";
+import { Amenity } from "../models/Amenity";
 
 const INITIAL_CITIES = [
   { id: 'c1', name: 'Visakhapatnam' },
   { id: 'c2', name: 'Vijayawada' },
   { id: 'c3', name: 'Guntur' }
+];
+
+const INITIAL_PROPERTY_TYPES = [
+  { id: 'pt1', name: 'Plots' },
+  { id: 'pt2', name: '1 BHK' },
+  { id: 'pt3', name: '2 BHK' },
+  { id: 'pt4', name: '3 BHK' },
+  { id: 'pt5', name: '4 BHK' },
+  { id: 'pt6', name: 'Villa' }
+];
+
+const INITIAL_FACINGS = [
+  { id: 'f1', name: 'North' },
+  { id: 'f2', name: 'East' },
+  { id: 'f3', name: 'West' },
+  { id: 'f4', name: 'South' },
+  { id: 'f5', name: 'North East' },
+  { id: 'f6', name: 'North West' }
+];
+
+const INITIAL_AMENITIES = [
+  { id: 'a1', name: 'Clubhouse' },
+  { id: 'a2', name: 'Gymnasium' },
+  { id: 'a3', name: 'Swimming Pool' },
+  { id: 'a4', name: 'Gated Security' }
 ];
 
 const INITIAL_LOCATIONS = [
@@ -1222,6 +1250,27 @@ export async function seedDatabase() {
     }
 
 
+
+    // 4. Seed Property Types
+    const propertyTypeCount = await PropertyType.count();
+    if (propertyTypeCount === 0) {
+      console.log("🌱 Seeding Property Types...");
+      await PropertyType.bulkCreate(INITIAL_PROPERTY_TYPES);
+    }
+
+    // 5. Seed Facings
+    const facingCount = await Facing.count();
+    if (facingCount === 0) {
+      console.log("🌱 Seeding Facings...");
+      await Facing.bulkCreate(INITIAL_FACINGS);
+    }
+
+    // 6. Seed Amenities
+    const amenityCount = await Amenity.count();
+    if (amenityCount === 0) {
+      console.log("🌱 Seeding Amenities...");
+      await Amenity.bulkCreate(INITIAL_AMENITIES);
+    }
 
     console.log("✅ Database Seeding completed successfully!");
   } catch (error) {

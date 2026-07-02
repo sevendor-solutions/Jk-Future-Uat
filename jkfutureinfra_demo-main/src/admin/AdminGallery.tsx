@@ -34,11 +34,22 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
     setUploadingMedia(true);
     try {
       const moduleName = mediaType === 'marketing' ? 'MVA' : 'PVA';
-      const uploadedUrl = await uploadImage(e.target.files[0], moduleName);
+      const uploadedUrl = await uploadImage(file, moduleName);
       setUrl(uploadedUrl);
+      
+      // Auto-detect video vs image type
+      const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(file.name);
+      if (isVideo) {
+        setType('video');
+        setCategory('Project Videos');
+      } else {
+        setType('image');
+      }
+
       onAddToast('Media file uploaded successfully!', 'success');
     } catch (err: any) {
       onAddToast(err.message || 'Media file upload failed', 'error');
@@ -150,7 +161,11 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
                 <tr key={item.id}>
                   <td>
                     <div style={{ width: '60px', height: '40px', borderRadius: '4px', overflow: 'hidden' }}>
-                      <img src={item.type === 'video' ? (item.thumbnail || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=80px') : item.url} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {item.type === 'video' && !item.thumbnail ? (
+                        <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
+                      ) : (
+                        <img src={item.type === 'video' ? item.thumbnail : item.url} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
                     </div>
                   </td>
                   <td className="font-semibold">{item.title}</td>
@@ -232,7 +247,14 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
                     className="form-control" 
                     placeholder="https://... or upload local file" 
                     value={url}
-                    onChange={e => setUrl(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setUrl(val);
+                      if (/\.(mp4|webm|ogg|mov|avi|mkv)(\?.*)?$/i.test(val)) {
+                        setType('video');
+                        setCategory('Project Videos');
+                      }
+                    }}
                     required
                     style={{ marginBottom: 0, flex: 1 }}
                   />

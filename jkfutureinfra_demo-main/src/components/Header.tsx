@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Menu, X, ChevronDown, Send, Phone, Mail } from 'lucide-react';
-import type { ProjectCategory, SiteCategory } from '../types';
+import type { ProjectCategory } from '../types';
 import logoImg from '../assets/logo.png';
 
 interface HeaderProps {
   activePage: string;
   activeCategory: ProjectCategory | null;
-  activeSiteCategory: SiteCategory | null;
-  onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: SiteCategory | null, params?: any) => void;
+  activeSiteCategory: string | null;
+  onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: string | null, params?: any) => void;
   onOpenEnquiry: () => void;
 }
 
@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
     setActiveDropdown(activeDropdown === name ? null : name);
   };
 
-  const handleLinkClick = (page: string, category: ProjectCategory | null = null, siteCategory: SiteCategory | null = null) => {
+  const handleLinkClick = (page: string, category: ProjectCategory | null = null, siteCategory: string | null = null) => {
     onNavigate(page, category, siteCategory);
     setMobileMenuOpen(false);
     setActiveDropdown(null);

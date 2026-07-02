@@ -56,6 +56,7 @@ const upload_1 = __importDefault(require("./routes/upload"));
 const seeder_1 = require("./utils/seeder");
 dotenv.config();
 const app = (0, express_1.default)();
+app.set("trust proxy", true);
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));

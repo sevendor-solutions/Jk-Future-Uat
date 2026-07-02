@@ -87,7 +87,11 @@ export const Gallery: React.FC<GalleryProps> = ({ galleryItems }) => {
                 style={{ cursor: 'pointer' }}
               >
                 <div className="gallery-card-img-box" style={{ height: '240px', position: 'relative', overflow: 'hidden' }}>
-                  <img src={item.type === 'video' ? (item.thumbnail || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600') : item.url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {item.type === 'video' && !item.thumbnail ? (
+                    <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
+                  ) : (
+                    <img src={item.type === 'video' ? item.thumbnail : item.url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  )}
                   
                   {/* Action Icons */}
                   <div className="gallery-card-overlay flex align-center justify-center">

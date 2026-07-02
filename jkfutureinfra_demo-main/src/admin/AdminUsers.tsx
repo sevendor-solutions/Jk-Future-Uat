@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
-import { Plus, Trash2, Edit2, Shield, UserCheck, Key } from 'lucide-react';
+import { Trash2, Edit2, Shield, UserCheck, Key } from 'lucide-react';
 import { addUser, deleteUser, updateUser } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminUsersProps {
   users: User[];
@@ -143,105 +145,119 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     }
   };
 
+  const labelMap: Record<string, string> = {
+    dashboard: 'Dashboard',
+    projects: 'Projects',
+    marketing: 'Marketing',
+    sites: 'Plots',
+    project_gallery: 'Proj Gallery',
+    marketing_gallery: 'Mktg Gallery',
+    gallery: 'Assets',
+    blogs: 'Blogs',
+    project_enquiries: 'Proj Leads',
+    marketing_enquiries: 'Mktg Leads',
+    careers: 'Careers',
+    users: 'Staff',
+    masters: 'Masters'
+  };
+
+  const columns: ALVColumn[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'username', label: 'Username' },
+    { key: 'email', label: 'Email' },
+    {
+      key: 'role',
+      label: 'System Role',
+      render: (_v, row) => {
+        const r = row as unknown as User;
+        return (
+          <span
+            className={`badge badge-${r.role === 'Admin' ? 'completed' : r.role === 'Moderator' ? 'ongoing' : 'upcoming'}`}
+            style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}
+          >
+            {r.role === 'Admin' ? <Shield size={12} /> : <UserCheck size={12} />} {r.role}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'allowedScreens',
+      label: 'Screen Access',
+      sortable: false,
+      render: (_v, row) => {
+        const r = row as unknown as User;
+        const screens = r.allowedScreens || getRoleDefaultScreens(r.role);
+        return (
+          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '4px', maxWidth: '280px', overflowX: 'auto', paddingBottom: '4px', whiteSpace: 'nowrap' }}>
+            {screens.map(s => (
+              <span
+                key={s}
+                className="badge"
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '2px 6px',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  flexShrink: 0
+                }}
+              >
+                {labelMap[s] || s}
+              </span>
+            ))}
+          </div>
+        );
+      }
+    },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '90px',
+      align: 'center',
+      render: (_v, row) => {
+        const u = row as unknown as User;
+        return (
+          <div className="admin-table-actions" style={{ justifyContent: 'center' }}>
+            <button
+              onClick={() => handleOpenEdit(u)}
+              className="alv-toolbar-btn"
+              title="Edit Login Details"
+            >
+              <Edit2 size={13} />
+            </button>
+            {isSuperAdmin && u.id !== currentUser?.id && (
+              <button
+                onClick={() => handleDelete(u.id, u.name)}
+                className="alv-toolbar-btn"
+                title="Delete Staff"
+                style={{ color: '#dc2626', borderColor: '#dc2626' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        );
+      }
+    }
+  ];
+
   return (
     <div className="admin-users-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>{isSuperAdmin ? 'Manage Staff Logins' : 'My Account Settings'}</h2>
-        {isSuperAdmin && (
-          <button onClick={handleOpenAdd} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-            <Plus size={16} /> Register Staff
-          </button>
-        )}
-      </div>
-
-      <div className="admin-table-wrapper" style={{ maxHeight: 'calc(100vh - 240px)', overflow: 'auto' }}>
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>System Role</th>
-              <th>Screen Access</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleUsers.map(u => (
-              <tr key={u.id}>
-                <td className="font-semibold">{u.name}</td>
-                <td>{u.username}</td>
-                <td>{u.email}</td>
-                <td>
-                  <span className={`badge badge-${u.role === 'Admin' ? 'completed' : u.role === 'Moderator' ? 'ongoing' : 'upcoming'}`} style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
-                    {u.role === 'Admin' ? <Shield size={12} /> : <UserCheck size={12} />} {u.role}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '4px', maxWidth: '280px', overflowX: 'auto', paddingBottom: '4px', whiteSpace: 'nowrap' }}>
-                    {(u.allowedScreens || getRoleDefaultScreens(u.role)).map(s => {
-                      const labelMap: Record<string, string> = {
-                        dashboard: 'Dashboard',
-                        projects: 'Projects',
-                        marketing: 'Marketing',
-                        sites: 'Plots',
-                        project_gallery: 'Proj Gallery',
-                        marketing_gallery: 'Mktg Gallery',
-                        gallery: 'Assets',
-                        blogs: 'Blogs',
-                        project_enquiries: 'Proj Leads',
-                        marketing_enquiries: 'Mktg Leads',
-                        careers: 'Careers',
-                        users: 'Staff',
-                        masters: 'Masters'
-                      };
-                      return (
-                        <span 
-                          key={s} 
-                          className="badge" 
-                          style={{ 
-                            fontSize: '0.65rem', 
-                            padding: '2px 6px', 
-                            backgroundColor: '#f1f5f9', 
-                            color: '#475569',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '4px',
-                            display: 'inline-block',
-                            flexShrink: 0
-                          }}
-                        >
-                          {labelMap[s] || s}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </td>
-                <td>
-                  <div className="admin-table-actions" style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      onClick={() => handleOpenEdit(u)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      title="Edit Login Details"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    {isSuperAdmin && u.id !== currentUser?.id && (
-                      <button 
-                        onClick={() => handleDelete(u.id, u.name)}
-                        className="btn btn-sm btn-outline btn-icon-only"
-                        style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                        title="Delete Staff"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title={isSuperAdmin ? 'Manage Staff Logins' : 'My Account Settings'}
+        subtitle={`${visibleUsers.length} user${visibleUsers.length !== 1 ? 's' : ''}`}
+        columns={columns}
+        data={visibleUsers as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onAdd={isSuperAdmin ? handleOpenAdd : undefined}
+        addLabel="Register Staff"
+        onRefresh={onRefresh}
+        searchPlaceholder="Search users..."
+        emptyText="No users found."
+      />
 
 
 

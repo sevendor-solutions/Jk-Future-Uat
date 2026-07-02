@@ -1,19 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar } from 'lucide-react';
-import type { Project, ProjectCategory, SiteCategory } from '../types';
+import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing } from '../types';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface ProjectsProps {
   projects: Project[];
   initialParams?: any;
   onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: SiteCategory | null, params?: any) => void;
   onOpenEnquiry: (projectName?: string) => void;
+  propertyTypes: PropertyType[];
+  facings: Facing[];
 }
 
 export const Projects: React.FC<ProjectsProps> = ({
   projects,
   initialParams,
   onNavigate,
-  onOpenEnquiry
+  onOpenEnquiry,
+  propertyTypes = [],
+  facings = []
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMap, setShowMap] = useState<boolean>(false);
@@ -50,6 +56,10 @@ export const Projects: React.FC<ProjectsProps> = ({
   // Map state
   const [selectedMapProject, setSelectedMapProject] = useState<Project | null>(null);
 
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
+
   // Extract unique cities dynamically from projects database
   const citiesList = useMemo(() => {
     const set = new Set<string>();
@@ -81,10 +91,18 @@ export const Projects: React.FC<ProjectsProps> = ({
   }, [projects]);
 
   // Property Type options
-  const propertyTypesOptions = ['Plots', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Villa'];
+  const propertyTypesOptions = useMemo(() => {
+    return propertyTypes.length > 0 
+      ? propertyTypes.map(t => t.name) 
+      : ['Plots', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Villa'];
+  }, [propertyTypes]);
 
   // Facing options
-  const facingsOptions = ['North', 'East', 'West', 'South', 'North East', 'North West'];
+  const facingsOptions = useMemo(() => {
+    return facings.length > 0 
+      ? facings.map(f => f.name) 
+      : ['North', 'East', 'West', 'South', 'North East', 'North West'];
+  }, [facings]);
 
   // Filter projects with multi-select checkboxes
   const filteredProjects = useMemo(() => {
@@ -117,7 +135,9 @@ export const Projects: React.FC<ProjectsProps> = ({
       // 6. Facings Checkboxes
       let matchesFacing = true;
       if (selectedFacings.length > 0) {
-        matchesFacing = p.facing ? selectedFacings.includes(p.facing) : false;
+        matchesFacing = p.facing 
+          ? p.facing.split(',').map(f => f.trim()).some(f => selectedFacings.includes(f))
+          : false;
       }
       
       // 7. Property Type Checkboxes
@@ -128,14 +148,24 @@ export const Projects: React.FC<ProjectsProps> = ({
         if (p.category === 'Villas') pTypes.push('Villa');
         if (p.category === 'Individual Houses') pTypes.push('Villa');
         
-        if (p.name.includes('Grand')) {
-          pTypes.push('Villa', '4 BHK');
-        } else if (p.name.includes('Heights')) {
-          pTypes.push('2 BHK', '3 BHK');
-        } else if (p.name.includes('Royal')) {
-          pTypes.push('3 BHK');
-        } else if (p.name.includes('Pearl')) {
-          pTypes.push('3 BHK');
+        if (p.availabilityDetails) {
+          if (p.availabilityDetails.includes('1 BHK')) pTypes.push('1 BHK');
+          if (p.availabilityDetails.includes('2 BHK')) pTypes.push('2 BHK');
+          if (p.availabilityDetails.includes('3 BHK')) pTypes.push('3 BHK');
+          if (p.availabilityDetails.includes('4 BHK')) pTypes.push('4 BHK');
+          if (p.availabilityDetails.includes('Plots')) pTypes.push('Plots');
+          if (p.availabilityDetails.includes('Villa')) pTypes.push('Villa');
+        } else {
+          // Fallback guess logic
+          if (p.name.includes('Grand')) {
+            pTypes.push('Villa', '4 BHK');
+          } else if (p.name.includes('Heights')) {
+            pTypes.push('2 BHK', '3 BHK');
+          } else if (p.name.includes('Royal')) {
+            pTypes.push('3 BHK');
+          } else if (p.name.includes('Pearl')) {
+            pTypes.push('3 BHK');
+          }
         }
         
         matchesPropertyTypes = selectedPropertyTypes.some(t => pTypes.includes(t));
@@ -150,6 +180,167 @@ export const Projects: React.FC<ProjectsProps> = ({
       return 0;
     });
   }, [projects, search, statusFilter, categoryFilter, priceSort, selectedCities, selectedLocations, selectedFacings, selectedPropertyTypes]);
+
+  // 1. Initialize map and manage markers
+  useEffect(() => {
+    if (!showMap || !mapContainerRef.current) {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      return;
+    }
+
+    // Initialize Leaflet Map
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current, {
+        center: [17.3850, 78.4867], // Center around Andhra Pradesh/Hyderabad
+        zoom: 7,
+      });
+
+      // CartoDB Positron - Sleek, professional light tile theme
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(mapRef.current);
+    }
+
+    const map = mapRef.current;
+
+    // Clear existing markers
+    Object.values(markersRef.current).forEach(marker => marker.remove());
+    markersRef.current = {};
+
+    const bounds: L.LatLngTuple[] = [];
+    const validCoordsProjects = filteredProjects.filter(
+      p => p.mapCoordinates && typeof p.mapCoordinates.lat === 'number' && typeof p.mapCoordinates.lng === 'number'
+    );
+
+    const createMarkerIcon = (isActive: boolean) => L.divIcon({
+      html: `<div style="
+        width: 32px;
+        height: 32px;
+        background-color: ${isActive ? '#f2b705' : '#0b192c'};
+        border: 2px solid white;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease, background-color 0.2s ease;
+      ">
+        <div style="
+          width: 12px;
+          height: 12px;
+          background-color: white;
+          border-radius: 50%;
+        "></div>
+      </div>`,
+      className: 'custom-leaflet-marker',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    });
+
+    validCoordsProjects.forEach(proj => {
+      const { lat, lng } = proj.mapCoordinates;
+      const isActive = selectedMapProject?.id === proj.id;
+
+      const marker = L.marker([lat, lng], {
+        icon: createMarkerIcon(isActive)
+      })
+      .addTo(map)
+      .on('click', () => {
+        setSelectedMapProject(proj);
+      });
+
+      marker.bindTooltip(`
+        <div style="font-family: var(--font-primary, sans-serif); font-size: 0.85rem; font-weight: 700; color: #0b192c;">
+          ${proj.name}
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -10],
+        opacity: 0.95
+      });
+
+      markersRef.current[proj.id] = marker;
+      bounds.push([lat, lng]);
+    });
+
+    // Auto-fit bounds if we have projects plotted
+    if (bounds.length > 0) {
+      map.fitBounds(bounds, {
+        padding: [50, 50],
+        maxZoom: 12
+      });
+    }
+
+    // Fix for Leaflet sizing inside tab/flex containers
+    const resizeTimeout = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+
+    return () => {
+      clearTimeout(resizeTimeout);
+    };
+  }, [showMap, filteredProjects]);
+
+  // 2. Pan to selected project when it changes
+  useEffect(() => {
+    if (showMap && mapRef.current && selectedMapProject?.mapCoordinates) {
+      const { lat, lng } = selectedMapProject.mapCoordinates;
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        mapRef.current.setView([lat, lng], 13, {
+          animate: true,
+          duration: 0.8
+        });
+
+        // Highlight marker icon when selected
+        Object.keys(markersRef.current).forEach(projId => {
+          const marker = markersRef.current[projId];
+          const isActive = selectedMapProject.id === projId;
+          const createMarkerIcon = (active: boolean) => L.divIcon({
+            html: `<div style="
+              width: 32px;
+              height: 32px;
+              background-color: ${active ? '#f2b705' : '#0b192c'};
+              border: 2px solid white;
+              border-radius: 50% 50% 50% 0;
+              transform: rotate(-45deg);
+              box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: transform 0.2s ease, background-color 0.2s ease;
+            ">
+              <div style="
+                width: 12px;
+                height: 12px;
+                background-color: white;
+                border-radius: 50%;
+              "></div>
+            </div>`,
+            className: 'custom-leaflet-marker',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+          });
+          marker.setIcon(createMarkerIcon(isActive));
+        });
+      }
+    }
+  }, [selectedMapProject, showMap]);
+
+  // 3. Clean up map on unmount
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   // Pagination bounds
   const paginatedProjects = useMemo(() => {
@@ -410,40 +601,9 @@ export const Projects: React.FC<ProjectsProps> = ({
             {showMap ? (
               /* Map View */
               <div className="map-view-wrapper glass-card grid grid-3 gap-2 p-2" style={{ padding: '1rem', minHeight: '500px' }}>
-                <div className="map-canvas-column grid-2-cols flex-2 relative" style={{ gridColumn: 'span 2', minHeight: '400px', backgroundColor: '#e2e8f0', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                  <div className="mock-map-bg" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1.5px)', backgroundSize: '24px 24px', backgroundColor: '#cbd5e1' }}>
-                    <svg width="100%" height="100%" style={{ position: 'absolute' }}>
-                      <path d="M 0,100 Q 200,80 400,200 T 800,220" fill="none" stroke="#94a3b8" strokeWidth="20" opacity="0.3" />
-                      <path d="M 150,0 Q 200,250 180,500" fill="none" stroke="#38bdf8" strokeWidth="15" opacity="0.5" />
-                      <path d="M 0,350 L 800,380" fill="none" stroke="#94a3b8" strokeWidth="30" opacity="0.2" />
-                    </svg>
-
-                    {filteredProjects.map(proj => {
-                      let x = 100;
-                      let y = 100;
-                      if (proj.id === 'p1') { x = 60; y = 40; }
-                      else if (proj.id === 'p2') { x = 20; y = 65; }
-                      else if (proj.id === 'p3') { x = 25; y = 78; }
-                      else if (proj.id === 'p4') { x = 75; y = 30; }
-                      else if (proj.id === 'p5') { x = 32; y = 60; }
-                      else if (proj.id === 'p6') { x = 62; y = 50; }
-                      else { x = Math.random() * 80 + 10; y = Math.random() * 80 + 10; }
-
-                      return (
-                        <button 
-                          key={proj.id}
-                          className={`map-marker-btn ${selectedMapProject?.id === proj.id ? 'pulse-active' : ''}`}
-                          style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 12 }}
-                          onClick={() => setSelectedMapProject(proj)}
-                        >
-                          📍
-                          <div className="marker-tooltip">{proj.name}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(11,25,44,0.85)', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.8rem', zIndex: 10 }}>
+                <div className="map-canvas-column grid-2-cols flex-2 relative" style={{ gridColumn: 'span 2', minHeight: '400px', backgroundColor: '#e2e8f0', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', zIndex: 1 }}>
+                  <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '400px' }} />
+                  <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(11,25,44,0.85)', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.8rem', zIndex: 1000, pointerEvents: 'none' }}>
                     Interactive Venture Pins - Click markers to view details
                   </div>
                 </div>
@@ -523,6 +683,11 @@ export const Projects: React.FC<ProjectsProps> = ({
                               {project.unitsCount !== undefined && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                                   <Home size={13} className="text-secondary" /> {project.unitsCount} Units
+                                </span>
+                              )}
+                              {project.width && project.length && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <SlidersHorizontal size={13} className="text-secondary" /> {project.width} x {project.length} ft
                                 </span>
                               )}
                             </div>
@@ -608,13 +773,20 @@ export const Projects: React.FC<ProjectsProps> = ({
 
                             <div className="pt-1.5" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                               {project.availabilityDetails && (
-                                <div className="availability-badges-row flex align-center gap-0.5 text-sm mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                <div className="availability-badges-row flex align-center gap-0.5 text-sm mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                                   <span className="font-bold text-primary flex align-center gap-0.5" style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                                     <Calendar size={13} className="text-secondary" /> Availability:
                                   </span>
-                                  <span className="badge badge-ongoing" style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
-                                    {project.availabilityDetails} units
-                                  </span>
+                                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                    {project.availabilityDetails.split(',').map((part, idx) => {
+                                      const [type, qty] = part.split(':').map(s => s.trim());
+                                      return (
+                                        <span key={idx} className="badge badge-ongoing" style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', border: '1px solid #d0e1f5', borderRadius: '4px', fontWeight: 600 }}>
+                                          {type} {qty ? `(${qty} units)` : ''}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               )}
                               

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import type { JobApplication } from '../types';
 import { Eye, Trash2, Phone, Mail } from 'lucide-react';
 import { updateApplicationStatus, deleteApplication } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminCareersProps {
   applications: JobApplication[];
@@ -16,8 +18,6 @@ export const AdminCareers: React.FC<AdminCareersProps> = ({
   onAddToast,
   onConfirm
 }) => {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
 
   const handleDelete = async (id: string, name: string) => {
@@ -45,105 +45,94 @@ export const AdminCareers: React.FC<AdminCareersProps> = ({
     }
   };
 
-  const filteredApps = applications.filter(app => {
-    const matchesSearch = app.name.toLowerCase().includes(search.toLowerCase()) || 
-                          app.position.toLowerCase().includes(search.toLowerCase()) || 
-                          app.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const columns: ALVColumn[] = [
+    {
+      key: 'name',
+      label: 'Candidate',
+      render: (_v, row) => {
+        const app = row as unknown as JobApplication;
+        return (
+          <div>
+            <div className="font-semibold">{app.name}</div>
+            <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}>
+              <Phone size={11} className="text-secondary" /> {app.phone}
+            </div>
+            <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}>
+              <Mail size={11} className="text-secondary" /> {app.email}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'position',
+      label: 'Target Position',
+      render: (_v, row) => (
+        <span className="font-semibold text-primary">{String(row.position)}</span>
+      ),
+    },
+    {
+      key: 'experience',
+      label: 'Experience',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_v, row) => {
+        const status = String(row.status);
+        return (
+          <span className={`badge badge-${status.toLowerCase().replace(' ', '')}`}>{status}</span>
+        );
+      },
+    },
+    {
+      key: 'date',
+      label: 'Applied Date',
+      render: (_v, row) => <span>{new Date(String(row.date)).toLocaleDateString()}</span>,
+    },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '90px',
+      align: 'center',
+      render: (_v, row) => {
+        const app = row as unknown as JobApplication;
+        return (
+          <div className="admin-table-actions" style={{ justifyContent: 'center' }}>
+            <button
+              onClick={() => setSelectedApp(app)}
+              className="alv-toolbar-btn"
+              title="Review Cover Letter"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              onClick={() => handleDelete(app.id, app.name)}
+              className="alv-toolbar-btn"
+              title="Delete Application"
+              style={{ color: '#dc2626', borderColor: '#dc2626' }}
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="admin-careers-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>Job Applications</h2>
-        <span className="badge badge-ongoing">{applications.length} Submissions</span>
-      </div>
-
-      {/* Filter and Search controls */}
-      <div className="admin-table-filters flex justify-between gap-2 mb-3">
-        <input 
-          type="text" 
-          className="form-control" 
-          placeholder="Search candidates, positions..." 
-          style={{ maxWidth: '300px', marginBottom: 0 }}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        
-        <select 
-          className="form-control" 
-          style={{ maxWidth: '200px', marginBottom: 0 }}
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-        >
-          <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Interview Scheduled">Interview Scheduled</option>
-          <option value="Shortlisted">Shortlisted</option>
-          <option value="Rejected">Rejected</option>
-        </select>
-      </div>
-
-      {/* Applications Table */}
-      <div className="admin-table-wrapper">
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Candidate</th>
-              <th>Target Position</th>
-              <th>Experience</th>
-              <th>Status</th>
-              <th>Applied Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredApps.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-4 text-muted">No applications found matching your criteria.</td>
-              </tr>
-            ) : (
-              filteredApps.map(app => (
-                <tr key={app.id}>
-                  <td>
-                    <div className="font-semibold">{app.name}</div>
-                    <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}><Phone size={11} className="text-secondary" /> {app.phone}</div>
-                    <div className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.15rem' }}><Mail size={11} className="text-secondary" /> {app.email}</div>
-                  </td>
-                  <td>
-                    <span className="font-semibold text-primary">{app.position}</span>
-                  </td>
-                  <td>{app.experience}</td>
-                  <td>
-                    <span className={`badge badge-${app.status.toLowerCase().replace(' ', '')}`}>{app.status}</span>
-                  </td>
-                  <td>{new Date(app.date).toLocaleDateString()}</td>
-                  <td>
-                    <div className="admin-table-actions">
-                      <button 
-                        onClick={() => setSelectedApp(app)}
-                        className="btn btn-sm btn-outline btn-icon-only"
-                        title="Review Cover Letter"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(app.id, app.name)}
-                        className="btn btn-sm btn-outline btn-icon-only"
-                        style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                        title="Delete Application"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title="Job Applications"
+        subtitle={`${applications.length} Submission${applications.length !== 1 ? 's' : ''}`}
+        columns={columns}
+        data={applications as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onRefresh={onRefresh}
+        searchPlaceholder="Search candidates, positions..."
+        emptyText="No applications found matching your criteria."
+      />
 
       {/* Application Detail Review Modal */}
       {selectedApp && (
@@ -164,7 +153,7 @@ export const AdminCareers: React.FC<AdminCareersProps> = ({
               </div>
 
               <div className="mb-3">
-                <h4 className="mb-0.5">Experience & Cover Letter:</h4>
+                <h4 className="mb-0.5">Experience &amp; Cover Letter:</h4>
                 <div className="p-2 bg-light-soft text-sm" style={{ border: '1px solid var(--border-color)', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
                   {selectedApp.coverLetter}
                 </div>

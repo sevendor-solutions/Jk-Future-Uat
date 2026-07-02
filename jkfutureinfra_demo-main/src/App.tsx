@@ -13,8 +13,8 @@ import { BlogPage } from './pages/Blog';
 import { Contact } from './pages/Contact';
 import { Careers } from './pages/Careers';
 import { AdminPanel } from './admin/AdminPanel';
-import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry } from './utils/db';
-import type { ProjectCategory, SiteCategory, Project, Blog, GalleryItem, Enquiry } from './types';
+import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings } from './utils/db';
+import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing } from './types';
 import { X, Send, User, Mail, Phone, MessageSquare, ShieldCheck } from 'lucide-react';
 interface Toast {
   id: string;
@@ -26,7 +26,7 @@ function App() {
   // Navigation Routing States
   const [activePage, setActivePage] = useState<string>('home');
   const [activeCategory, setActiveCategory] = useState<ProjectCategory | null>(null);
-  const [activeSiteCategory, setActiveSiteCategory] = useState<SiteCategory | null>(null);
+  const [activeSiteCategory, setActiveSiteCategory] = useState<string | null>(null);
   const [activeParams, setActiveParams] = useState<any>(null);
 
   // Quick Enquiry Modal States
@@ -54,6 +54,8 @@ function App() {
   const [marketing, setMarketing] = useState<Project[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+  const [facings, setFacings] = useState<Facing[]>([]);
 
   // Seed and fetch data & Handle URL hash routing (e.g. #/admin)
   useEffect(() => {
@@ -74,18 +76,35 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Manage body scrolling layout for admin portal session
+  const isLoggedAdmin = activePage === 'admin' && sessionStorage.getItem('jk_infra_logged_user') !== null;
+  useEffect(() => {
+    if (isLoggedAdmin) {
+      document.body.classList.add('admin-body');
+    } else {
+      document.body.classList.remove('admin-body');
+    }
+    return () => {
+      document.body.classList.remove('admin-body');
+    };
+  }, [isLoggedAdmin]);
+
   const refreshData = async () => {
     try {
-      const [projs, mktg, blgs, gal] = await Promise.all([
+      const [projs, mktg, blgs, gal, pts, fcs] = await Promise.all([
         getProjects(),
         getMarketing(),
         getBlogs(),
-        getGallery()
+        getGallery(),
+        getPropertyTypes(),
+        getFacings()
       ]);
       setProjects(projs);
       setMarketing(mktg);
       setBlogs(blgs);
       setGallery(gal);
+      setPropertyTypes(pts);
+      setFacings(fcs);
     } catch (err) {
       console.error("Error loading data from API:", err);
       addToast("Failed to load data from backend server.", "error");
@@ -102,7 +121,7 @@ function App() {
     }, 4000);
   };
 
-  const handleNavigate = (page: string, category: ProjectCategory | null = null, siteCategory: SiteCategory | null = null, params: any = null) => {
+  const handleNavigate = (page: string, category: ProjectCategory | null = null, siteCategory: string | null = null, params: any = null) => {
     setActivePage(page);
     setActiveCategory(category);
     setActiveSiteCategory(siteCategory);
@@ -194,8 +213,7 @@ function App() {
   };
 
 
-  // Check if we are inside logged-in Admin session to hide main layout parts
-  const isLoggedAdmin = activePage === 'admin' && sessionStorage.getItem('jk_infra_logged_user') !== null;
+
 
   return (
     <div className="app-root" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -238,6 +256,8 @@ function App() {
             initialParams={activeParams}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
+            propertyTypes={propertyTypes}
+            facings={facings}
           />
         )}
 
@@ -248,6 +268,8 @@ function App() {
             initialParams={{ status: 'Ongoing' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
+            propertyTypes={propertyTypes}
+            facings={facings}
           />
         )}
         {activePage === 'projects-upcoming' && (
@@ -256,6 +278,8 @@ function App() {
             initialParams={{ status: 'Upcoming' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
+            propertyTypes={propertyTypes}
+            facings={facings}
           />
         )}
         {activePage === 'projects-completed' && (
@@ -264,6 +288,8 @@ function App() {
             initialParams={{ status: 'Completed' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
+            propertyTypes={propertyTypes}
+            facings={facings}
           />
         )}
 
@@ -290,6 +316,8 @@ function App() {
             siteCategory={activeSiteCategory}
             projects={marketing}
             onNavigate={handleNavigate}
+            propertyTypes={propertyTypes}
+            facings={facings}
           />
         )}
 
@@ -440,7 +468,7 @@ function App() {
                       className="form-control-premium" 
                       placeholder="+91 98765 43210" 
                       value={enqPhone}
-                      onChange={e => setEnqPhone(e.target.value)}
+                      onChange={e => setEnqPhone(e.target.value.replace(/[^0-9\s+\-()]/g, ''))}
                       required
                     />
                   </div>

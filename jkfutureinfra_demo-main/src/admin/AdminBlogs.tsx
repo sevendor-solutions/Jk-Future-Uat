@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import type { Blog, BlogCategory } from '../types';
-import { Plus, Edit2, Trash2, User } from 'lucide-react';
+import { Edit2, Trash2, User } from 'lucide-react';
 import { addBlog, updateBlog, deleteBlog, uploadImage } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminBlogsProps {
   blogs: Blog[];
@@ -126,67 +128,78 @@ export const AdminBlogs: React.FC<AdminBlogsProps> = ({
     }
   };
 
+  const columns: ALVColumn[] = [
+    {
+      key: 'image',
+      label: 'Cover',
+      sortable: false,
+      width: '80px',
+      render: (_v, row) => (
+        <div style={{ width: '60px', height: '40px', borderRadius: '4px', overflow: 'hidden' }}>
+          <img src={String(row.image || '')} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      ),
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      render: (_v, row) => (
+        <span className="font-semibold" style={{ maxWidth: '300px', display: 'block' }}>{String(row.title)}</span>
+      ),
+    },
+    { key: 'category', label: 'Category' },
+    {
+      key: 'author',
+      label: 'Author',
+      render: (_v, row) => (
+        <span className="flex align-center gap-0.5 font-semibold text-muted">
+          <User size={14} /> {String(row.author)}
+        </span>
+      ),
+    },
+    { key: 'date', label: 'Date' },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '90px',
+      align: 'center',
+      render: (_v, row) => (
+        <div className="admin-table-actions" style={{ justifyContent: 'center' }}>
+          <button
+            onClick={() => handleOpenEdit(row as unknown as Blog)}
+            className="alv-toolbar-btn"
+            title="Edit"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={() => handleDelete(String(row.id), String(row.title))}
+            className="alv-toolbar-btn"
+            title="Delete"
+            style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="admin-blogs-view">
-      <div className="flex justify-between align-center mb-3">
-        <h2>Manage Blogs & News</h2>
-        <button onClick={handleOpenAdd} className="btn btn-secondary btn-sm flex align-center gap-0.5">
-          <Plus size={16} /> Publish Post
-        </button>
-      </div>
-
-      <div className="admin-table-wrapper">
-        <table className="admin-table text-sm">
-          <thead>
-            <tr>
-              <th>Cover</th>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Author</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {blogs.map(blog => (
-              <tr key={blog.id}>
-                <td>
-                  <div style={{ width: '60px', height: '40px', borderRadius: '4px', overflow: 'hidden' }}>
-                    <img src={blog.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                </td>
-                <td className="font-semibold" style={{ maxWidth: '300px' }}>{blog.title}</td>
-                <td>{blog.category}</td>
-                <td>
-                  <span className="flex align-center gap-0.5 font-semibold text-muted">
-                    <User size={14} /> {blog.author}
-                  </span>
-                </td>
-                <td>{blog.date}</td>
-                <td>
-                  <div className="admin-table-actions">
-                    <button 
-                      onClick={() => handleOpenEdit(blog)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      title="Edit"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(blog.id, blog.title)}
-                      className="btn btn-sm btn-outline btn-icon-only"
-                      style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ALVGrid
+        title="Manage Blogs & News"
+        subtitle={`${blogs.length} article${blogs.length !== 1 ? 's' : ''}`}
+        columns={columns}
+        data={blogs as unknown as Record<string, unknown>[]}
+        rowKey="id"
+        onAdd={handleOpenAdd}
+        addLabel="Publish Post"
+        onRefresh={onRefresh}
+        searchPlaceholder="Search articles..."
+        emptyText="No blog articles found."
+      />
 
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>

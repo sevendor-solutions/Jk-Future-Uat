@@ -1,19 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import type { Project, ProjectCategory, SiteCategory } from '../types';
+import type { Project, ProjectCategory, PropertyType, Facing } from '../types';
 import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home } from 'lucide-react';
 
 interface MarketingProps {
   category: ProjectCategory;
-  siteCategory: SiteCategory | null;
+  siteCategory: string | null;
   projects: Project[];
-  onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: SiteCategory | null, params?: any) => void;
+  onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: string | null, params?: any) => void;
+  propertyTypes?: PropertyType[];
+  facings?: Facing[];
 }
 
 export const Marketing: React.FC<MarketingProps> = ({
   category,
   siteCategory,
   projects,
-  onNavigate
+  onNavigate,
+  propertyTypes = [],
+  facings = []
 }) => {
   // Filter States
   const [search, setSearch] = useState<string>('');
@@ -26,6 +30,19 @@ export const Marketing: React.FC<MarketingProps> = ({
   
   // Mobile drawer controls
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+
+  // Dynamic filter options from master database
+  const propertyTypesOptions = useMemo(() => {
+    return propertyTypes.length > 0 
+      ? propertyTypes.map(t => t.name) 
+      : ['Plots', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Villa'];
+  }, [propertyTypes]);
+
+  const facingsOptions = useMemo(() => {
+    return facings.length > 0 
+      ? facings.map(f => f.name) 
+      : ['North', 'East', 'West', 'South', 'North East', 'North West'];
+  }, [facings]);
 
   // Collapsible Filters Panel State
   const [panelOpen, setPanelOpen] = useState({
@@ -117,7 +134,8 @@ export const Marketing: React.FC<MarketingProps> = ({
       const matchesLocation = selectedLocations.length === 0 || (p.microLocation && selectedLocations.includes(p.microLocation));
       
       // 4. Facing Checkbox
-      const matchesFacing = selectedFacings.length === 0 || (p.facing && selectedFacings.includes(p.facing));
+      const matchesFacing = selectedFacings.length === 0 || 
+        (p.facing && p.facing.split(',').map(f => f.trim()).some(f => selectedFacings.includes(f)));
       
       // 5. Site Classification (SubCategory) Checkbox
       const matchesSubCategory = selectedSubCategories.length === 0 || (p.subCategory && selectedSubCategories.includes(p.subCategory));
@@ -134,6 +152,8 @@ export const Marketing: React.FC<MarketingProps> = ({
           if (p.availabilityDetails.includes('2 BHK')) pTypes.push('2 BHK');
           if (p.availabilityDetails.includes('3 BHK')) pTypes.push('3 BHK');
           if (p.availabilityDetails.includes('4 BHK')) pTypes.push('4 BHK');
+          if (p.availabilityDetails.includes('Plots')) pTypes.push('Plots');
+          if (p.availabilityDetails.includes('Villa')) pTypes.push('Villa');
         }
         matchesPropertyTypes = selectedPropertyTypes.some(t => pTypes.includes(t));
       }
@@ -416,11 +436,11 @@ export const Marketing: React.FC<MarketingProps> = ({
             </div>
 
             {/* Property Types */}
-            {renderFilterPanel('Property Types', 'propertyType', ['Plots', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Villa'], selectedPropertyTypes, togglePropertyType, clearPropertyTypes, '#d9534f')}
+            {renderFilterPanel('Property Types', 'propertyType', propertyTypesOptions, selectedPropertyTypes, togglePropertyType, clearPropertyTypes, '#d9534f')}
 
             {/* SubCategory Filter for Sites general view */}
             {category === 'Sites' && !siteCategory && renderFilterPanel('Site Classification', 'siteCategory', ['VUDA Approved Sites', 'Panchayati Approved Sites', 'Development Sites', 'Ventures'], selectedSubCategories, toggleSubCategory, clearSubCategories, '#00a884')}
-            {renderFilterPanel('Facings', 'facing', ['North', 'East', 'West', 'South', 'North East', 'North West'], selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
+            {renderFilterPanel('Facings', 'facing', facingsOptions, selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
             {renderFilterPanel('Cities', 'city', citiesList, selectedCities, toggleCity, clearCities, '#3a9ad9')}
             {renderFilterPanel('Locations', 'location', locationsList, selectedLocations, toggleLocation, clearLocations, '#e68a00')}
           </aside>
@@ -452,10 +472,17 @@ export const Marketing: React.FC<MarketingProps> = ({
                             <span className="text-xs text-secondary font-bold uppercase tracking-wider">
                               {project.category} {project.subCategory ? `| ${project.subCategory}` : ''}
                             </span>
-                            {cleanConfigurations && (
-                              <span className="text-xxs font-bold text-muted bg-light px-1 py-0.5" style={{ fontSize: '0.65rem', backgroundColor: 'var(--bg-light-soft)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                                {cleanConfigurations}
-                              </span>
+                            {project.availabilityDetails && (
+                              <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                                {project.availabilityDetails.split(',').map((part, idx) => {
+                                  const [type, qty] = part.split(':').map(s => s.trim());
+                                  return (
+                                    <span key={idx} className="text-xxs font-bold" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '4px', border: '1px solid #d0e1f5', fontWeight: 600 }}>
+                                      {type} {qty ? `(${qty})` : ''}
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                           <h3 className="property-card-title my-0.5" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', fontSize: '1.15rem', lineHeight: 'tight' }}>{project.name}</h3>
@@ -473,9 +500,19 @@ export const Marketing: React.FC<MarketingProps> = ({
                               <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors} Floors`}
                             </span>
                           )}
-                          {project.unitsCount !== undefined && (
+                          {!!project.unitsCount && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                               <Home size={13} className="text-secondary" /> {project.unitsCount} Units
+                            </span>
+                          )}
+                          {project.uds && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
+                            </span>
+                          )}
+                          {project.width && project.length && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <SlidersHorizontal size={13} className="text-secondary" /> {project.width} x {project.length} ft
                             </span>
                           )}
                         </div>

@@ -215,6 +215,15 @@ export class Project extends Model {
     @Column(DataType.STRING)
     specImage?: string;
 
+    @Column(DataType.STRING)
+    uds?: string;
+
+    @Column(DataType.STRING)
+    width?: string;
+
+    @Column(DataType.STRING)
+    length?: string;
+
     @Column({
         type: DataType.BOOLEAN,
         allowNull: false,
