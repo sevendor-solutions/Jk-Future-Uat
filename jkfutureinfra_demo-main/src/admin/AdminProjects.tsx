@@ -86,6 +86,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ProjectCategory>('Flats');
   const [subCategory, setSubCategory] = useState<string>('');
+  const [classification, setClassification] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('Ongoing');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
@@ -109,12 +110,14 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [specImage, setSpecImage] = useState('');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
+  const [uds, setUds] = useState('');
 
   const handleOpenAdd = () => {
     setEditingProject(null);
     setName('');
     setCategory('Flats');
     setSubCategory('');
+    setClassification('');
     setStatus('Ongoing');
     setLocation('');
     setDescription('');
@@ -137,6 +140,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setSpecImage('');
     setWidth('');
     setLength('');
+    setUds('');
     
     setModalOpen(true);
   };
@@ -146,6 +150,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setName(proj.name);
     setCategory(proj.category);
     setSubCategory(proj.subCategory || '');
+    setClassification(proj.classification || '');
     setStatus(proj.status);
     setLocation(proj.location);
     setDescription(proj.description);
@@ -175,6 +180,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setSpecImage(proj.specImage || '');
     setWidth(proj.width || '');
     setLength(proj.length || '');
+    setUds(proj.uds || '');
     
     setModalOpen(true);
   };
@@ -215,7 +221,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       id: editingProject ? editingProject.id : 'p_' + Date.now(),
       name,
       category,
-      subCategory: category === 'Sites' && subCategory ? subCategory : undefined,
+      subCategory: subCategory || undefined,
       status,
       location,
       description,
@@ -248,7 +254,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       availabilityDetails: availabilityString,
       specImage: specImage || '',
       width: category === 'Sites' ? width : undefined,
-      length: category === 'Sites' ? length : undefined
+      length: category === 'Sites' ? length : undefined,
+      uds: (category === 'Flats' || category === 'Sites') ? uds : undefined,
+      classification: classification || undefined
     };
 
     try {
@@ -274,6 +282,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
         <span>
           <span style={{fontWeight:600, color:'var(--secondary)'}}>{String(r.category)}</span>
           {r.subCategory && <span style={{fontSize:'0.72rem',color:'#888',marginLeft:'4px'}}>({String(r.subCategory)})</span>}
+          {r.classification && (
+            <div style={{ fontSize: '0.75rem', color: '#0ea5e9', fontWeight: 600, marginTop: '2px' }}>{String(r.classification)}</div>
+          )}
         </span>
       );
     }},
@@ -362,13 +373,17 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-2 gap-2">
+                <div className="grid grid-3 gap-2">
                   <div className="form-group">
                     <label className="form-label">Main Category *</label>
                     <select 
                       className="form-control" 
                       value={category}
-                      onChange={e => setCategory(e.target.value as ProjectCategory)}
+                      onChange={e => {
+                        const newCat = e.target.value as ProjectCategory;
+                        setCategory(newCat);
+                        setSubCategory('');
+                      }}
                     >
                       <option value="Flats">Flats</option>
                       <option value="Villas">Villas</option>
@@ -377,7 +392,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     </select>
                   </div>
 
-                  {category === 'Sites' && (
+                  {category === 'Sites' ? (
                     <div className="form-group">
                       <label className="form-label">Site Classification *</label>
                       <select 
@@ -393,33 +408,110 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         <option value="Ventures">Ventures</option>
                       </select>
                     </div>
+                  ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
+                    <div className="form-group">
+                      <label className="form-label">Sub-category *</label>
+                      <select 
+                        className="form-control" 
+                        value={subCategory}
+                        onChange={e => setSubCategory(e.target.value)}
+                        required
+                      >
+                        <option value="">Select Sub-category</option>
+                        <option value="Under Construction">Under Construction</option>
+                        <option value="Ready to Move">Ready to Move</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">Sub-category</label>
+                      <input className="form-control" disabled value="N/A" />
+                    </div>
                   )}
+
+                  <div className="form-group">
+                    <label className="form-label">Classification *</label>
+                    <select
+                      className="form-control"
+                      value={classification}
+                      onChange={e => setClassification(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Classification</option>
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Semi Commercial">Semi Commercial</option>
+                    </select>
+                  </div>
                 </div>
 
                 {category === 'Sites' && (
-                  <div className="grid grid-2 gap-2">
+                  <>
+                    <div className="grid grid-2 gap-2">
+                      <div className="form-group">
+                        <label className="form-label">Site Width (ft) *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="e.g. 30"
+                          value={width}
+                          onChange={e => {
+                            const newWidth = e.target.value;
+                            setWidth(newWidth);
+                            const w = parseFloat(newWidth);
+                            const l = parseFloat(length);
+                            if (!isNaN(w) && !isNaN(l)) {
+                              setUds(String(Math.round((w * l / 9) * 100) / 100));
+                            }
+                          }}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Site Length (ft) *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="e.g. 40"
+                          value={length}
+                          onChange={e => {
+                            const newLength = e.target.value;
+                            setLength(newLength);
+                            const w = parseFloat(width);
+                            const l = parseFloat(newLength);
+                            if (!isNaN(w) && !isNaN(l)) {
+                              setUds(String(Math.round((w * l / 9) * 100) / 100));
+                            }
+                          }}
+                          required
+                        />
+                      </div>
+                    </div>
                     <div className="form-group">
-                      <label className="form-label">Site Width (ft) *</label>
+                      <label className="form-label">Total Sq. Yards *</label>
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="e.g. 30"
-                        value={width}
-                        onChange={e => setWidth(e.target.value)}
+                        placeholder="Calculated automatically, or enter manually"
+                        value={uds}
+                        onChange={e => setUds(e.target.value)}
                         required
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Site Length (ft) *</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. 40"
-                        value={length}
-                        onChange={e => setLength(e.target.value)}
-                        required
-                      />
-                    </div>
+                  </>
+                )}
+
+                {category === 'Flats' && (
+                  <div className="form-group">
+                    <label className="form-label">UDS (Sq. Yds) *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 35"
+                      value={uds}
+                      onChange={e => setUds(e.target.value)}
+                      required
+                    />
                   </div>
                 )}
 

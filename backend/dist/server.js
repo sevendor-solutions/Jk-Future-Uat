@@ -52,6 +52,9 @@ const masters_1 = __importDefault(require("./routes/masters"));
 const careers_1 = __importDefault(require("./routes/careers"));
 const users_1 = __importDefault(require("./routes/users"));
 const upload_1 = __importDefault(require("./routes/upload"));
+const documents_1 = __importDefault(require("./routes/documents"));
+const siteVisits_1 = __importDefault(require("./routes/siteVisits"));
+const mailConfig_1 = __importDefault(require("./routes/mailConfig"));
 // Import seeder
 const seeder_1 = require("./utils/seeder");
 dotenv.config();
@@ -72,6 +75,9 @@ app.use("/api/masters", masters_1.default);
 app.use("/api/careers", careers_1.default);
 app.use("/api/users", users_1.default);
 app.use("/api/upload", upload_1.default);
+app.use("/api/documents", documents_1.default);
+app.use("/api/site-visits", siteVisits_1.default);
+app.use("/api/mail-config", mailConfig_1.default);
 // Test routes
 app.get("/", (req, res) => res.send("JK Future Infra Backend (Sequelize) is running!"));
 app.get("/api/db-info", (req, res) => {

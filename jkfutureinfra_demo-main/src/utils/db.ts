@@ -1,4 +1,4 @@
-import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
+import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
@@ -127,6 +127,15 @@ export const getGallery = async (): Promise<GalleryItem[]> => {
 export const addGalleryItem = async (item: GalleryItem): Promise<void> => {
   const res = await fetch(`${API_BASE_URL}/gallery`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(item)
+  });
+  await handleResponse(res);
+};
+
+export const updateGalleryItem = async (item: GalleryItem): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/gallery/${item.id}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(item)
   });
@@ -453,6 +462,126 @@ export const deleteAmenity = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE_URL}/masters/amenities/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+// Documents
+export const getDocuments = async (): Promise<Document[]> => {
+  const res = await fetch(`${API_BASE_URL}/documents`);
+  return handleResponse(res);
+};
+
+export const addDocument = async (doc: Document): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/documents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(doc)
+  });
+  await handleResponse(res);
+};
+
+export const updateDocument = async (doc: Document): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/documents/${doc.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(doc)
+  });
+  await handleResponse(res);
+};
+
+export const deleteDocument = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+// Site Visits
+export const getSiteVisits = async (): Promise<SiteVisit[]> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const addSiteVisit = async (visit: Omit<SiteVisit, 'id'>): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(visit)
+  });
+  await handleResponse(res);
+};
+
+export const updateSiteVisit = async (id: string, visit: Partial<SiteVisit>): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(visit)
+  });
+  await handleResponse(res);
+};
+
+export const deleteSiteVisit = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+export const processSiteVisitReminders = async (): Promise<{ totalProcessed: number; sent: number; skipped: number; failed: number }> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits/process-reminders`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const sendSiteVisitEmailNow = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/site-visits/${id}/send-now`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'API request failed');
+  }
+};
+
+// Mail Config
+export const getMailConfig = async (): Promise<MailConfig> => {
+  const res = await fetch(`${API_BASE_URL}/mail-config`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const updateMailConfig = async (config: Partial<MailConfig>): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/mail-config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(config)
+  });
+  await handleResponse(res);
+};
+
+export const sendTestEmail = async (toEmail: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/mail-config/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ toEmail })
   });
   const json = await res.json();
   if (!res.ok || !json.success) {

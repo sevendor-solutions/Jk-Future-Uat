@@ -1,0 +1,499 @@
+import React, { useState, useEffect } from 'react';
+import { getMailConfig, updateMailConfig, sendTestEmail } from '../utils/db';
+import { 
+  Save, 
+  Send, 
+  Server, 
+  Sliders, 
+  FileText, 
+  Eye, 
+  EyeOff, 
+  AlertTriangle,
+  Mail,
+  Loader2,
+  CheckCircle,
+  HelpCircle
+} from 'lucide-react';
+
+interface AdminMailConfigProps {
+  onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+}
+
+export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
+  onAddToast
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Form Fields
+  const [deliveryMode, setDeliveryMode] = useState<'smtp' | 'simulation'>('simulation');
+  const [triggerWindowDays, setTriggerWindowDays] = useState(5);
+  const [sendBeforeDays, setSendBeforeDays] = useState(1);
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState(2525);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailTemplate, setEmailTemplate] = useState('');
+
+  // Test Email Modal
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [testingConnection, setTestingConnection] = useState(false);
+
+  const loadConfig = async () => {
+    setLoading(true);
+    try {
+      const data = await getMailConfig();
+      setDeliveryMode(data.deliveryMode);
+      setTriggerWindowDays(data.triggerWindowDays);
+      setSendBeforeDays(data.sendBeforeDays);
+      setSmtpHost(data.smtpHost);
+      setSmtpPort(data.smtpPort);
+      setSmtpUser(data.smtpUser || '');
+      setSmtpPass(data.smtpPass || '');
+      setSenderEmail(data.senderEmail);
+      setEmailSubject(data.emailSubject);
+      setEmailTemplate(data.emailTemplate);
+    } catch (err) {
+      onAddToast("Failed to load mail configuration.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    const updateData = {
+      deliveryMode,
+      triggerWindowDays: Number(triggerWindowDays),
+      sendBeforeDays: Number(sendBeforeDays),
+      smtpHost,
+      smtpPort: Number(smtpPort),
+      smtpUser,
+      smtpPass,
+      senderEmail,
+      emailSubject,
+      emailTemplate
+    };
+
+    try {
+      await updateMailConfig(updateData);
+      onAddToast("Mail configuration saved successfully.", "success");
+      loadConfig();
+    } catch (err: any) {
+      onAddToast(err.message || "Failed to save configuration.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSendTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailAddress.trim()) {
+      onAddToast("Please enter an email address.", "error");
+      return;
+    }
+
+    setTestingConnection(true);
+    try {
+      await sendTestEmail(testEmailAddress);
+      onAddToast(`Test email request sent to ${testEmailAddress}.`, "success");
+      setShowTestModal(false);
+      setTestEmailAddress('');
+    } catch (err: any) {
+      onAddToast(err.message || "SMTP connection test failed.", "error");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  // Compile template for real-time live preview with fake static values
+  const compileTemplatePreview = (templateStr: string) => {
+    const fakeVars = {
+      customerName: "Jane Doe",
+      projectName: "JK Emerald Heights",
+      visitDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
+      visitTime: "14:30",
+      assignedAgent: "G. Anand (Corporate Consultant)",
+      location: "Gunadala, Vijayawada, Andhra Pradesh"
+    };
+
+    let result = templateStr;
+    for (const key in fakeVars) {
+      result = result.replace(new RegExp(`{${key}}`, 'g'), (fakeVars as any)[key]);
+    }
+    return result;
+  };
+
+  const compiledSubjectPreview = compileTemplatePreview(emailSubject);
+  const compiledBodyPreview = compileTemplatePreview(emailTemplate);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem' }}>
+        <Loader2 className="animate-spin" size={32} style={{ color: 'var(--sap-fiori-blue)' }} />
+        <span style={{ fontSize: '0.9rem', color: '#666' }}>Fetching server configurations...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-mail-config-view">
+      <form onSubmit={handleSave}>
+        {/* Screen Header Toolbar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--sap-fiori-blue)', margin: 0 }}>Site Visit Reminder Configuration</h2>
+            <p style={{ fontSize: '0.8rem', color: '#666', margin: '2px 0 0' }}>Adjust email reminder triggers, SMTP servers, and email content templates.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem', padding: '0.5rem 1rem' }}
+              onClick={() => setShowTestModal(true)}
+            >
+              <Send size={14} /> Send Test Email
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem', padding: '0.5rem 1rem', backgroundColor: 'var(--sap-fiori-blue)', borderColor: 'var(--sap-fiori-blue)', color: 'white' }}
+              disabled={saving}
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
+              {saving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+
+        {/* Delivery Mode Banner Alert */}
+        <div style={{
+          backgroundColor: deliveryMode === 'simulation' ? '#fef3c7' : '#dcfce7',
+          border: `1px solid ${deliveryMode === 'simulation' ? '#f59e0b' : '#10b981'}`,
+          borderRadius: '6px',
+          padding: '0.85rem 1rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '0.85rem',
+          color: deliveryMode === 'simulation' ? '#92400e' : '#166534'
+        }}>
+          {deliveryMode === 'simulation' ? (
+            <>
+              <AlertTriangle size={18} style={{ color: '#d97706' }} />
+              <div>
+                <strong>Simulation Mode is active.</strong> Reminder emails will NOT be actually sent to customer inboxes. Instead, they will be beautifully rendered and logged in the database and server console. Toggle to **Real SMTP Delivery** once credentials are setup.
+              </div>
+            </>
+          ) : (
+            <>
+              <CheckCircle size={18} style={{ color: '#059669' }} />
+              <div>
+                <strong>Real SMTP Delivery is active.</strong> Reminders will be sent to customers' real inbox addresses through your configured SMTP server. Ensure credentials are valid.
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="grid grid-3 gap-3 mobile-stack">
+          {/* Column 1 & 2: Forms */}
+          <div className="grid-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
+            {/* Box 1: Reminder Trigger Rules */}
+            <div className="admin-card" style={{ padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
+                <Sliders size={16} /> Automated Reminder Schedule Rules
+              </h3>
+
+              <div className="grid grid-2 gap-2 mobile-stack">
+                <div className="form-group-premium">
+                  <label className="form-label-premium">
+                    Tracking Range Window (Days)
+                    <span className="tooltip-anchor" title="Reminder checks are limited to visits scheduled within this number of days in the future. Check logic ignores further bookings."> <HelpCircle size={12} style={{ color: '#94a3b8', verticalAlign: 'middle', cursor: 'help' }} /></span>
+                  </label>
+                  <input 
+                    type="number" 
+                    className="form-control-premium"
+                    value={triggerWindowDays}
+                    onChange={e => setTriggerWindowDays(Number(e.target.value))}
+                    min={1}
+                    max={30}
+                    required
+                  />
+                </div>
+
+                <div className="form-group-premium">
+                  <label className="form-label-premium">
+                    Send Reminder Lead-Time (Days Before)
+                    <span className="tooltip-anchor" title="System delivers email reminder exactly this many days before the visit date. e.g. 1 day before."> <HelpCircle size={12} style={{ color: '#94a3b8', verticalAlign: 'middle', cursor: 'help' }} /></span>
+                  </label>
+                  <input 
+                    type="number" 
+                    className="form-control-premium"
+                    value={sendBeforeDays}
+                    onChange={e => setSendBeforeDays(Number(e.target.value))}
+                    min={1}
+                    max={10}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Box 2: Mail Delivery Method */}
+            <div className="admin-card" style={{ padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
+                <Server size={16} /> Mail Delivery Server (SMTP)
+              </h3>
+
+              <div className="form-group-premium">
+                <label className="form-label-premium">Delivery Mode</label>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="deliveryMode" 
+                      value="simulation"
+                      checked={deliveryMode === 'simulation'}
+                      onChange={() => setDeliveryMode('simulation')}
+                    />
+                    Simulation (Logs & Mocks only)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="deliveryMode" 
+                      value="smtp"
+                      checked={deliveryMode === 'smtp'}
+                      onChange={() => setDeliveryMode('smtp')}
+                    />
+                    Real SMTP (Deliver real emails)
+                  </label>
+                </div>
+              </div>
+
+              {deliveryMode === 'smtp' && (
+                <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                  <div className="grid grid-3 gap-1.5 mobile-stack" style={{ marginBottom: '1rem' }}>
+                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                      <label className="form-label-premium">SMTP Host</label>
+                      <input 
+                        type="text" 
+                        className="form-control-premium"
+                        value={smtpHost}
+                        onChange={e => setSmtpHost(e.target.value)}
+                        placeholder="e.g. smtp.gmail.com"
+                        required={deliveryMode === 'smtp'}
+                      />
+                    </div>
+                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                      <label className="form-label-premium">SMTP Port</label>
+                      <input 
+                        type="number" 
+                        className="form-control-premium"
+                        value={smtpPort}
+                        onChange={e => setSmtpPort(Number(e.target.value))}
+                        placeholder="e.g. 587 or 465"
+                        required={deliveryMode === 'smtp'}
+                      />
+                    </div>
+                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                      <label className="form-label-premium">Sender From Email</label>
+                      <input 
+                        type="email" 
+                        className="form-control-premium"
+                        value={senderEmail}
+                        onChange={e => setSenderEmail(e.target.value)}
+                        placeholder="e.g. info@jkfutureinfra.com"
+                        required={deliveryMode === 'smtp'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-2 gap-2 mobile-stack">
+                    <div className="form-group-premium">
+                      <label className="form-label-premium">SMTP Username</label>
+                      <input 
+                        type="text" 
+                        className="form-control-premium"
+                        value={smtpUser}
+                        onChange={e => setSmtpUser(e.target.value)}
+                        placeholder="SMTP login username"
+                      />
+                    </div>
+                    <div className="form-group-premium" style={{ position: 'relative' }}>
+                      <label className="form-label-premium">SMTP Password</label>
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        className="form-control-premium"
+                        value={smtpPass}
+                        onChange={e => setSmtpPass(e.target.value)}
+                        placeholder="SMTP login credentials"
+                        style={{ paddingRight: '40px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '32px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#64748b',
+                          padding: 0
+                        }}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Box 3: Email Template Editor */}
+            <div className="admin-card" style={{ padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
+                <FileText size={16} /> Email Subject & Body Template
+              </h3>
+
+              <div className="form-group-premium">
+                <label className="form-label-premium">Email Subject Line</label>
+                <input 
+                  type="text" 
+                  className="form-control-premium"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  placeholder="Subject line"
+                  required
+                />
+              </div>
+
+              <div className="form-group-premium" style={{ marginBottom: '0.5rem' }}>
+                <label className="form-label-premium">Email Body Template (Plain Text)</label>
+                <textarea 
+                  className="form-control-premium"
+                  style={{ minHeight: '160px', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.5', width: '100%', padding: '0.5rem' }}
+                  value={emailTemplate}
+                  onChange={e => setEmailTemplate(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#475569' }}>
+                <strong>Supported Placeholders:</strong> Use these variables. They will be replaced dynamically:
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: '6px' }}>
+                  <code>{`{customerName}`}</code>
+                  <code>{`{projectName}`}</code>
+                  <code>{`{visitDate}`}</code>
+                  <code>{`{visitTime}`}</code>
+                  <code>{`{location}`}</code>
+                  <code>{`{assignedAgent}`}</code>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Column 3: Live Preview Block */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ position: 'sticky', top: '1rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', marginBottom: '0.75rem' }}>
+                <Eye size={16} /> Live Rendering Preview
+              </h3>
+
+              <div className="email-preview-envelope" style={{ border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', backgroundColor: '#f8fafc', fontFamily: 'sans-serif' }}>
+                {/* Envelope details bar */}
+                <div style={{ backgroundColor: '#e2e8f0', padding: '0.75rem 1rem', borderBottom: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#475569' }}>
+                  <div style={{ marginBottom: '4px' }}>
+                    <strong>From:</strong> {senderEmail || 'noreply@jkfutureinfra.com'}
+                  </div>
+                  <div style={{ marginBottom: '4px' }}>
+                    <strong>To:</strong> Jane Doe (jane.doe@example.com)
+                  </div>
+                  <div style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                    <strong>Subject:</strong> {compiledSubjectPreview || '—'}
+                  </div>
+                </div>
+
+                {/* Email Body */}
+                <div style={{ padding: '1.25rem', minHeight: '300px', backgroundColor: 'white', fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }}>
+                  {compiledBodyPreview || 'Enter content in the template editor to preview.'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {/* Test Connection Modal */}
+      {showTestModal && (
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div className="modal-content premium-modal" onClick={e => e.stopPropagation()} style={{ width: '400px', padding: '1.5rem' }}>
+            <div className="premium-modal-header" style={{ marginBottom: '1rem' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Mail size={18} style={{ color: 'var(--sap-fiori-blue)' }} /> 
+                <span>Send SMTP Test Email</span>
+              </h3>
+              <p style={{ fontSize: '0.78rem', color: '#666', margin: '4px 0 0' }}>
+                Verify if your email host connection is configured correctly.
+              </p>
+            </div>
+
+            <form onSubmit={handleSendTest} className="premium-modal-form">
+              <div className="form-group-premium">
+                <label className="form-label-premium">Recipient Email Address</label>
+                <div className="input-with-icon">
+                  <Mail size={16} className="input-icon" />
+                  <input 
+                    type="email" 
+                    className="form-control-premium"
+                    value={testEmailAddress}
+                    onChange={e => setTestEmailAddress(e.target.value)}
+                    placeholder="recipient@example.com"
+                    required
+                    disabled={testingConnection}
+                  />
+                </div>
+              </div>
+
+              <div className="premium-modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowTestModal(false)} 
+                  className="btn btn-outline"
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
+                  disabled={testingConnection}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: 'var(--sap-fiori-blue)', borderColor: 'var(--sap-fiori-blue)', color: 'white', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
+                  disabled={testingConnection}
+                >
+                  {testingConnection ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {testingConnection ? 'Testing Connection...' : 'Send Test'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

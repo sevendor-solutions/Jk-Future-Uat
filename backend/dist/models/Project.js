@@ -270,6 +270,26 @@ __decorate([
     __metadata("design:type", String)
 ], Project.prototype, "length", void 0);
 __decorate([
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Project.prototype, "classification", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.BOOLEAN,
+        allowNull: true,
+        defaultValue: true
+    }),
+    __metadata("design:type", Boolean)
+], Project.prototype, "isActive", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT),
+    __metadata("design:type", String)
+], Project.prototype, "remarks", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Project.prototype, "marketingResult", void 0);
+__decorate([
     (0, sequelize_typescript_1.Column)({
         type: sequelize_typescript_1.DataType.BOOLEAN,
         allowNull: false,

@@ -47,4 +47,18 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
     }
 });
 
+// PUT update gallery item
+router.put("/:id", authenticateToken, async (req, res, next) => {
+    try {
+        const item = await GalleryItem.findByPk(req.params.id);
+        if (!item) {
+            return res.status(404).json({ success: false, message: "Gallery item not found" });
+        }
+        await item.update(req.body);
+        return res.json({ success: true, data: item });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

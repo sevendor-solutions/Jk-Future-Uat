@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { GalleryItem, GalleryCategory, Project } from '../types';
-import { Plus, Trash2, FileVideo, ImageIcon } from 'lucide-react';
-import { addGalleryItem, deleteGalleryItem, uploadImage } from '../utils/db';
+import { Plus, Trash2, Edit2, FileVideo, ImageIcon } from 'lucide-react';
+import { addGalleryItem, updateGalleryItem, deleteGalleryItem, uploadImage } from '../utils/db';
 
 interface AdminGalleryProps {
   gallery: GalleryItem[];
@@ -28,6 +28,7 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
   const [type, setType] = useState<'image' | 'video'>('image');
   const [url, setUrl] = useState('');
   const [projectAssociation, setProjectAssociation] = useState('');
+  const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
 
   // Upload state
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -65,19 +66,30 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
   );
 
   const filteredGallery = gallery.filter(item => {
-    if (!item.projectAssociation) {
-      // Unassociated items go to Projects gallery by default
-      return !isMarketing;
+    if (isMarketing) {
+      return item.projectAssociation === 'marketing_general' || associatedIds.has(item.projectAssociation || '');
+    } else {
+      return !item.projectAssociation || item.projectAssociation === 'project_general' || associatedIds.has(item.projectAssociation);
     }
-    return associatedIds.has(item.projectAssociation);
   });
 
   const handleOpenAdd = () => {
+    setEditingItem(null);
     setTitle('');
     setCategory(isMarketing ? 'Event Photos' : 'Project Photos');
     setType('image');
     setUrl('');
-    setProjectAssociation('');
+    setProjectAssociation(isMarketing ? 'marketing_general' : 'project_general');
+    setModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: GalleryItem) => {
+    setEditingItem(item);
+    setTitle(item.title);
+    setCategory(item.category as GalleryCategory);
+    setType(item.type);
+    setUrl(item.url);
+    setProjectAssociation(item.projectAssociation || (isMarketing ? 'marketing_general' : 'project_general'));
     setModalOpen(true);
   };
 
@@ -100,24 +112,29 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
       return;
     }
 
-    const newItem: GalleryItem = {
-      id: 'g_' + Date.now(),
+    const itemData: GalleryItem = {
+      id: editingItem ? editingItem.id : 'g_' + Date.now(),
       title,
       category,
       type,
       url,
       thumbnail: type === 'video' ? '' : undefined,
-      projectAssociation: projectAssociation || undefined,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+      projectAssociation: projectAssociation || (isMarketing ? 'marketing_general' : 'project_general'),
+      date: editingItem ? editingItem.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
     };
 
     try {
-      await addGalleryItem(newItem);
-      onAddToast(`Media "${title}" added successfully.`, 'success');
+      if (editingItem) {
+        await updateGalleryItem(itemData);
+        onAddToast(`Media "${title}" updated successfully.`, 'success');
+      } else {
+        await addGalleryItem(itemData);
+        onAddToast(`Media "${title}" added successfully.`, 'success');
+      }
       setModalOpen(false);
       onRefresh();
     } catch (error) {
-      onAddToast('Failed to upload media.', 'error');
+      onAddToast(editingItem ? 'Failed to update media.' : 'Failed to upload media.', 'error');
     }
   };
 
@@ -178,6 +195,14 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
                   <td>{item.date}</td>
                   <td>
                     <button 
+                      onClick={() => handleOpenEdit(item)}
+                      className="btn btn-sm btn-outline btn-icon-only"
+                      style={{ marginRight: '0.4rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                      title="Edit"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button 
                       onClick={() => handleDelete(item.id, item.title)}
                       className="btn btn-sm btn-outline btn-icon-only"
                       style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
@@ -197,7 +222,7 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>
-              Add {isMarketing ? 'Marketing' : 'Project'} Media
+              {editingItem ? 'Edit' : 'Add'} {isMarketing ? 'Marketing' : 'Project'} Media
             </h3>
             <form onSubmit={handleSubmit} className="p-3">
               <div className="form-group">
@@ -274,7 +299,7 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
                   value={projectAssociation}
                   onChange={e => setProjectAssociation(e.target.value)}
                 >
-                  <option value="">None / General</option>
+                  <option value={isMarketing ? 'marketing_general' : 'project_general'}>None / General</option>
                   {associatedProjects.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -283,7 +308,7 @@ export const AdminGallery: React.FC<AdminGalleryProps> = ({
 
               <div className="flex gap-2 justify-end mt-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm">Save Media</button>
+                <button type="submit" className="btn btn-secondary btn-sm">{editingItem ? 'Update Media' : 'Save Media'}</button>
               </div>
             </form>
           </div>

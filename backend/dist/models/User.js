@@ -49,7 +49,7 @@ __decorate([
 ], User.prototype, "username", void 0);
 __decorate([
     (0, sequelize_typescript_1.Column)({
-        type: sequelize_typescript_1.DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner"),
+        type: sequelize_typescript_1.DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture"),
         allowNull: false,
         defaultValue: "Admin"
     }),

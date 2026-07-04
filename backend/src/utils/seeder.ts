@@ -10,6 +10,8 @@ import { JobApplication } from "../models/JobApplication";
 import { PropertyType } from "../models/PropertyType";
 import { Facing } from "../models/Facing";
 import { Amenity } from "../models/Amenity";
+import { SiteVisit } from "../models/SiteVisit";
+import { MailConfig } from "../models/MailConfig";
 
 const INITIAL_CITIES = [
   { id: 'c1', name: 'Visakhapatnam' },
@@ -1265,11 +1267,92 @@ export async function seedDatabase() {
       await Facing.bulkCreate(INITIAL_FACINGS);
     }
 
-    // 6. Seed Amenities
+        // 6. Seed Amenities
     const amenityCount = await Amenity.count();
     if (amenityCount === 0) {
       console.log("🌱 Seeding Amenities...");
       await Amenity.bulkCreate(INITIAL_AMENITIES);
+    }
+
+    // 7. Seed MailConfig
+    const mailConfigCount = await MailConfig.count();
+    if (mailConfigCount === 0) {
+      console.log("🌱 Seeding MailConfig...");
+      await MailConfig.create({
+        id: "default",
+        deliveryMode: "simulation",
+        triggerWindowDays: 5,
+        sendBeforeDays: 1,
+        smtpHost: "smtp.mailtrap.io",
+        smtpPort: 2525,
+        smtpUser: "",
+        smtpPass: "",
+        senderEmail: "noreply@jkfutureinfra.com",
+        emailSubject: "Reminder: Scheduled Site Visit for {projectName}",
+        emailTemplate: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} will guide you.\n\nWarm regards,\nJK Future Infra Team"
+      });
+    }
+
+    // 8. Seed Site Visits
+    const siteVisitsCount = await SiteVisit.count();
+    if (siteVisitsCount === 0) {
+      console.log("🌱 Seeding Site Visits...");
+      const formatOffsetDate = (offsetDays: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        return d.toISOString().split('T')[0]; // YYYY-MM-DD
+      };
+
+      await SiteVisit.bulkCreate([
+        {
+          id: "sv1",
+          customerName: "K. Rajesh Kumar",
+          customerEmail: "rajesh.k@example.com",
+          customerPhone: "9876543210",
+          projectAssociation: "p1",
+          projectName: "JK Grand Horizon",
+          visitDate: formatOffsetDate(1), // Tomorrow (Should trigger reminder!)
+          visitTime: "11:00",
+          emailStatus: "Pending",
+          assignedAgent: "M. Srinivas"
+        },
+        {
+          id: "sv2",
+          customerName: "S. Anjali Devi",
+          customerEmail: "anjali.s@example.com",
+          customerPhone: "8765432109",
+          projectAssociation: "p2",
+          projectName: "JK Emerald Heights",
+          visitDate: formatOffsetDate(3), // In 3 days (Pending within trigger window)
+          visitTime: "15:30",
+          emailStatus: "Pending",
+          assignedAgent: "V. Swetha"
+        },
+        {
+          id: "sv3",
+          customerName: "T. Vikram Aditya",
+          customerEmail: "vikram.aditya@example.com",
+          customerPhone: "7654321098",
+          projectAssociation: "p3",
+          projectName: "JK Royal Enclave",
+          visitDate: formatOffsetDate(-1), // Yesterday (Should mark as Skipped if checked)
+          visitTime: "10:00",
+          emailStatus: "Pending",
+          assignedAgent: "G. Anand"
+        },
+        {
+          id: "sv4",
+          customerName: "P. Lakshmi Prasanna",
+          customerEmail: "lakshmi.p@example.com",
+          customerPhone: "6543210987",
+          projectAssociation: "p7",
+          projectName: "JK Industrial Gateway",
+          visitDate: formatOffsetDate(8), // In 8 days (Outside trigger window of 5 days)
+          visitTime: "14:00",
+          emailStatus: "Pending",
+          assignedAgent: "D. Prasad"
+        }
+      ]);
     }
 
     console.log("✅ Database Seeding completed successfully!");

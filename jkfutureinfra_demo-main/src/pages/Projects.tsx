@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar } from 'lucide-react';
+import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
 import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing } from '../types';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -107,6 +107,7 @@ export const Projects: React.FC<ProjectsProps> = ({
   // Filter projects with multi-select checkboxes
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
+      if (p.isActive === false) return false;
       // 1. Keyword search
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                             p.location.toLowerCase().includes(search.toLowerCase()) ||
@@ -664,7 +665,9 @@ export const Projects: React.FC<ProjectsProps> = ({
                         </div>
                         <div className="property-card-content flex-1 flex flex-col justify-between p-3" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '1.25rem' }}>
                           <div>
-                            <span className="text-xs text-secondary font-bold uppercase tracking-wider">{project.category}</span>
+                            <span className="text-xs text-secondary font-bold uppercase tracking-wider">
+                              {project.category} {project.subCategory ? `| ${project.subCategory}` : ''} {project.classification ? `| ${project.classification}` : ''}
+                            </span>
                             <h3 className="property-card-title my-0.5" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', fontSize: '1.2rem' }}>{project.name}</h3>
                             <p className="property-card-location flex align-center gap-0.5 text-xs text-muted" style={{ display: 'flex', alignItems: 'center' }}><MapPin size={12} className="text-secondary" /> {project.location}</p>
                             
@@ -683,6 +686,11 @@ export const Projects: React.FC<ProjectsProps> = ({
                               {project.unitsCount !== undefined && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                                   <Home size={13} className="text-secondary" /> {project.unitsCount} Units
+                                </span>
+                              )}
+                              {project.uds && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
                                 </span>
                               )}
                               {project.width && project.length && (
@@ -741,7 +749,9 @@ export const Projects: React.FC<ProjectsProps> = ({
                           <div className="card-details-content flex flex-col justify-between p-3" style={{ flex: 1.2, padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
                             <div>
                               <div className="flex justify-between align-center mb-0.5" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="text-xs text-secondary font-bold uppercase tracking-wider">{project.category}</span>
+                                <span className="text-xs text-secondary font-bold uppercase tracking-wider">
+                                  {project.category} {project.subCategory ? `| ${project.subCategory}` : ''} {project.classification ? `| ${project.classification}` : ''}
+                                </span>
                                 <span className="text-xl font-extrabold text-secondary">{project.priceRange}</span>
                               </div>
                               <h3 className="my-0.5 text-primary text-xl font-bold cursor-pointer hover-text-secondary" onClick={() => onNavigate('project-details', null, null, { id: project.id })}>
@@ -766,6 +776,16 @@ export const Projects: React.FC<ProjectsProps> = ({
                                 {project.facing && (
                                   <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
                                     <Compass size={13} className="text-secondary" /> Facing: {project.facing}
+                                  </span>
+                                )}
+                                {project.uds && (
+                                  <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                                    <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
+                                  </span>
+                                )}
+                                {project.width && project.length && (
+                                  <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                                    <SlidersHorizontal size={13} className="text-secondary" /> Size: {project.width} x {project.length} ft
                                   </span>
                                 )}
                               </div>

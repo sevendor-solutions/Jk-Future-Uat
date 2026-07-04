@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type { User, Project, Enquiry, Blog, GalleryItem, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
+import type { User, Project, Enquiry, Blog, GalleryItem, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document } from '../types';
 import logoImg from '../assets/logo.png';
 import { 
   getProjects, 
@@ -16,6 +16,7 @@ import {
   getPropertyTypes,
   getFacings,
   getAmenities,
+  getDocuments,
   loginUser,
   logoutUser
 } from '../utils/db';
@@ -27,12 +28,15 @@ import { AdminMarketing } from './AdminMarketing';
 import { AdminSites } from './AdminSites';
 import { AdminGallery } from './AdminGallery';
 import { AdminBlogs } from './AdminBlogs';
+import { AdminDocuments } from './AdminDocuments';
 import { AdminEnquiries } from './AdminEnquiries';
 import { AdminUsers } from './AdminUsers';
 import { AdminCareers } from './AdminCareers';
 import { AdminMasters } from './AdminMasters';
 import { AdminAuditLogs } from './AdminAuditLogs';
 import type { AuditLog } from './AdminAuditLogs';
+import { AdminSiteVisits } from './AdminSiteVisits';
+import { AdminMailConfig } from './AdminMailConfig';
 
 // Icons
 import { 
@@ -42,6 +46,7 @@ import {
   Map, 
   Image as ImageIcon, 
   FileText, 
+  FolderOpen, 
   MessageSquare, 
   Users, 
   Briefcase,
@@ -54,7 +59,9 @@ import {
   Eye,
   EyeOff,
   Search,
-  ClipboardList
+  ClipboardList,
+  Mail,
+  Settings
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -83,6 +90,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -292,12 +300,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Sync DB records
   const syncDBData = async () => {
     try {
-      const [projs, mktg, enqs, blgs, gal, usrs, apps, cts, locs, pts, fcs, ams] = await Promise.all([
+      const [projs, mktg, enqs, blgs, gal, docs, usrs, apps, cts, locs, pts, fcs, ams] = await Promise.all([
         getProjects(),
         getMarketing(),
         getEnquiries(),
         getBlogs(),
         getGallery(),
+        getDocuments(),
         getUsers(),
         getApplications(),
         getCities(),
@@ -311,6 +320,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setEnquiries(enqs);
       setBlogs(blgs);
       setGallery(gal);
+      setDocuments(docs);
       setUsers(usrs);
       setApplications(apps);
       setCities(cts);
@@ -359,6 +369,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'blogs':
       case 'careers':
       case 'audit_logs':
+      case 'documents':
         return true;
       case 'marketing_gallery':
         return currentUser.role === 'MarketingOwner';
@@ -369,6 +380,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'users':
       case 'masters':
         return false;
+      case 'site_visits':
+        return true;
+      case 'mail_config':
+        return false;
       default:
         return false;
     }
@@ -377,7 +392,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Redirect if currently selected tab is not allowed
   useEffect(() => {
     if (currentUser) {
-      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs'];
+      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config'];
       const allowed = allTabs.filter(tab => hasScreenAccess(tab));
       if (allowed.length > 0 && !allowed.includes(activeTab)) {
         setActiveTab(allowed[0]);
@@ -517,12 +532,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'project_gallery': return 'Project Gallery';
       case 'marketing_gallery': return 'Marketing Gallery';
       case 'blogs': return 'Blogs & News';
+      case 'documents': return 'Document Storage';
       case 'project_enquiries': return 'Project Leads';
       case 'marketing_enquiries': return 'Marketing Leads';
       case 'careers': return 'Job Applications';
       case 'users': return 'Staff Logins';
       case 'masters': return 'Masters Config';
       case 'audit_logs': return 'System Audit Trail';
+      case 'site_visits': return 'Site Visit Emails';
+      case 'mail_config': return 'Mail Settings';
       default: return tabKey;
     }
   };
@@ -569,6 +587,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       b.summary.toLowerCase().includes(query)
     );
   }, [blogs, searchQuery]);
+
+  const searchedDocuments = useMemo(() => {
+    if (!searchQuery.trim()) return documents;
+    const query = searchQuery.toLowerCase();
+    return documents.filter(d => 
+      d.title.toLowerCase().includes(query) || 
+      d.category.toLowerCase().includes(query)
+    );
+  }, [documents, searchQuery]);
 
   // Render Login Gate Screen
   if (!currentUser) {
@@ -669,9 +696,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <img 
             src={logoImg} 
             alt="JK Logo" 
-            style={{ height: '42px', width: '42px', objectFit: 'contain', backgroundColor: 'var(--white)', padding: '4px', borderRadius: '4px' }} 
+            style={{
+              marginTop: '10px',
+              height: '119px',
+              width: '205px',
+              objectFit: 'contain',
+              backgroundColor: 'rgb(255, 255, 255)',
+              padding: '4px 12px',
+              borderRadius: '44px',
+              display: 'block'
+            }} 
           />
-          {!sidebarCollapsed && <span className="font-bold text-xs text-white uppercase ml-1" style={{ letterSpacing: '1px' }}>Admin Portal</span>}
           <button 
             type="button"
             className="sidebar-collapse-btn hide-mobile"
@@ -744,7 +779,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           )}
 
           {/* Group 3: Media & Blogs */}
-          {(hasScreenAccess('project_gallery') || hasScreenAccess('marketing_gallery') || hasScreenAccess('blogs')) && (
+          {(hasScreenAccess('project_gallery') || hasScreenAccess('marketing_gallery') || hasScreenAccess('blogs') || hasScreenAccess('documents')) && (
             <div className="admin-sidebar-group">
               <div className="admin-sidebar-group-title">Media & Content</div>
               
@@ -780,6 +815,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     data-tooltip="Blogs & News"
                   >
                     <FileText size={16} /> <span className="admin-sidebar-link-text">Blogs & News</span>
+                  </button>
+                </li>
+              )}
+
+              {hasScreenAccess('documents') && (
+                <li className="admin-sidebar-item">
+                  <button 
+                    onClick={() => handleOpenTab('documents')} 
+                    className={`admin-sidebar-link ${activeTab === 'documents' ? 'active' : ''}`}
+                    data-tooltip="Document Storage"
+                  >
+                    <FolderOpen size={16} /> <span className="admin-sidebar-link-text">Document Storage</span>
                   </button>
                 </li>
               )}
@@ -823,6 +870,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     data-tooltip="Job Applications"
                   >
                     <Briefcase size={16} /> <span className="admin-sidebar-link-text">Job Applications</span>
+                  </button>
+                </li>
+              )}
+            </div>
+          )}
+
+          {/* Group: Site Visit Reminders */}
+          {(hasScreenAccess('site_visits') || hasScreenAccess('mail_config')) && (
+            <div className="admin-sidebar-group">
+              <div className="admin-sidebar-group-title">Site Reminders</div>
+              
+              {hasScreenAccess('site_visits') && (
+                <li className="admin-sidebar-item">
+                  <button 
+                    onClick={() => handleOpenTab('site_visits')} 
+                    className={`admin-sidebar-link ${activeTab === 'site_visits' ? 'active' : ''}`}
+                    data-tooltip="Site Visit Emails"
+                  >
+                    <Mail size={16} /> <span className="admin-sidebar-link-text">Site Visit Emails</span>
+                  </button>
+                </li>
+              )}
+
+              {hasScreenAccess('mail_config') && (
+                <li className="admin-sidebar-item">
+                  <button 
+                    onClick={() => handleOpenTab('mail_config')} 
+                    className={`admin-sidebar-link ${activeTab === 'mail_config' ? 'active' : ''}`}
+                    data-tooltip="Mail Settings"
+                  >
+                    <Settings size={16} /> <span className="admin-sidebar-link-text">Mail Settings</span>
                   </button>
                 </li>
               )}
@@ -1164,6 +1242,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
+          {activeTab === 'documents' && hasScreenAccess('documents') && (
+            <AdminDocuments 
+              documents={searchedDocuments}
+              projects={searchedProjects}
+              marketing={searchedMarketing}
+              onRefresh={() => { syncDBData(); logAction('Documents Sync', 'Synced document storage repository', 'Success'); }}
+              onAddToast={(msg, type) => {
+                onAddToast(msg, type);
+                if (type === 'success') logAction('Documents Update', msg, 'Success');
+              }}
+              onConfirm={handleConfirmAction}
+            />
+          )}
+
           {activeTab === 'project_enquiries' && hasScreenAccess('project_enquiries') && (
             <AdminEnquiries 
               enquiries={searchedEnquiries}
@@ -1263,6 +1355,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 setAuditLogs(refreshed);
                 onAddToast('Audit logs trail refreshed.', 'success');
               }}
+            />
+          )}
+
+          {activeTab === 'site_visits' && hasScreenAccess('site_visits') && (
+            <AdminSiteVisits 
+              projects={projects}
+              marketing={marketing}
+              onAddToast={onAddToast}
+              onConfirm={handleConfirmAction}
+            />
+          )}
+
+          {activeTab === 'mail_config' && hasScreenAccess('mail_config') && (
+            <AdminMailConfig 
+              onAddToast={onAddToast}
             />
           )}
         </main>

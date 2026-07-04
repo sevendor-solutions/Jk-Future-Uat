@@ -93,6 +93,7 @@ export const Marketing: React.FC<MarketingProps> = ({
   // Filter projects matching this category/subcategory initially
   const matchingProjects = useMemo(() => {
     return projects.filter(p => {
+      if (p.isActive === false) return false;
       if (p.category !== category) return false;
       if (category === 'Sites' && siteCategory) {
         return p.subCategory === siteCategory;
@@ -467,7 +468,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                         <div>
                           <div className="flex justify-between align-center" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                             <span className="text-xs text-secondary font-bold uppercase tracking-wider">
-                              {project.category} {project.subCategory ? `| ${project.subCategory}` : ''}
+                              {project.category} {project.subCategory ? `| ${project.subCategory}` : ''} {project.classification ? `| ${project.classification}` : ''}
                             </span>
                             {project.availabilityDetails && (
                               <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>

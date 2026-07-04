@@ -15,6 +15,9 @@ import mastersRoutes from "./routes/masters";
 import careersRoutes from "./routes/careers";
 import usersRoutes from "./routes/users";
 import uploadRoutes from "./routes/upload";
+import documentsRoutes from "./routes/documents";
+import siteVisitsRoutes from "./routes/siteVisits";
+import mailConfigRoutes from "./routes/mailConfig";
 
 // Import seeder
 import { seedDatabase } from "./utils/seeder";
@@ -40,6 +43,9 @@ app.use("/api/masters", mastersRoutes);
 app.use("/api/careers", careersRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/documents", documentsRoutes);
+app.use("/api/site-visits", siteVisitsRoutes);
+app.use("/api/mail-config", mailConfigRoutes);
 
 // Test routes
 app.get("/", (req, res) => res.send("JK Future Infra Backend (Sequelize) is running!"));

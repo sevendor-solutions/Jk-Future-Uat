@@ -58,6 +58,11 @@ export interface Project {
   uds?: string;
   width?: string;
   length?: string;
+  classification?: string;
+  isActive?: boolean;
+  remarks?: string;
+  marketingResult?: string;
+  isMarketing?: boolean;
 }
 
 
@@ -101,7 +106,7 @@ export interface Enquiry {
 export interface User {
   id: string;
   username: string;
-  role: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner';
+  role: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture';
   name: string;
   email: string;
   password?: string;
@@ -144,4 +149,47 @@ export interface JobApplication {
   coverLetter?: string;
   status: 'Pending' | 'Interview Scheduled' | 'Shortlisted' | 'Rejected';
   date: string;
+}
+
+export interface Document {
+  id: string;
+  title: string;
+  category: string;
+  fileUrl: string;
+  fileType: string;
+  projectAssociation?: string;
+  uploadedBy?: string;
+  date: string;
+}
+
+export interface SiteVisit {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  projectAssociation: string;
+  projectName: string;
+  visitDate: string;
+  visitTime: string;
+  emailStatus: 'Pending' | 'Sent' | 'Failed' | 'Skipped';
+  emailSentDate?: string;
+  assignedAgent?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MailConfig {
+  id: string;
+  deliveryMode: 'smtp' | 'simulation';
+  triggerWindowDays: number;
+  sendBeforeDays: number;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
+  senderEmail: string;
+  emailSubject: string;
+  emailTemplate: string;
+  createdAt?: string;
+  updatedAt?: string;
 }

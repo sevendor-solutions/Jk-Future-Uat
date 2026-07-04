@@ -14,6 +14,9 @@ import { UserSessionLog } from "../models/UserSessionLog";
 import { PropertyType } from "../models/PropertyType";
 import { Facing } from "../models/Facing";
 import { Amenity } from "../models/Amenity";
+import { Document } from "../models/Document";
+import { SiteVisit } from "../models/SiteVisit";
+import { MailConfig } from "../models/MailConfig";
 
 dotenv.config();
 
@@ -33,7 +36,10 @@ const models = [
     UserSessionLog,
     PropertyType,
     Facing,
-    Amenity
+    Amenity,
+    Document,
+    SiteVisit,
+    MailConfig
 ];
 
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);

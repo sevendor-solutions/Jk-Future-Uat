@@ -48,6 +48,9 @@ const UserSessionLog_1 = require("../models/UserSessionLog");
 const PropertyType_1 = require("../models/PropertyType");
 const Facing_1 = require("../models/Facing");
 const Amenity_1 = require("../models/Amenity");
+const Document_1 = require("../models/Document");
+const SiteVisit_1 = require("../models/SiteVisit");
+const MailConfig_1 = require("../models/MailConfig");
 dotenv.config();
 const dbType = (process.env.DB_TYPE || "postgres").toLowerCase();
 let sequelize;
@@ -63,7 +66,10 @@ const models = [
     UserSessionLog_1.UserSessionLog,
     PropertyType_1.PropertyType,
     Facing_1.Facing,
-    Amenity_1.Amenity
+    Amenity_1.Amenity,
+    Document_1.Document,
+    SiteVisit_1.SiteVisit,
+    MailConfig_1.MailConfig
 ];
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);
 switch (dbType) {

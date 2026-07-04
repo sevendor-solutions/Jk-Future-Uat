@@ -108,6 +108,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [uds, setUds] = useState('');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
+  const [classification, setClassification] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [remarks, setRemarks] = useState('');
+  const [marketingResult, setMarketingResult] = useState('');
 
   const handleOpenAdd = () => {
     setEditingProperty(null);
@@ -137,6 +141,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUds('');
     setWidth('');
     setLength('');
+    setClassification('');
+    setIsActive(true);
+    setRemarks('');
+    setMarketingResult('');
 
     setModalOpen(true);
   };
@@ -176,6 +184,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUds(prop.uds || '');
     setWidth(prop.width || '');
     setLength(prop.length || '');
+    setClassification(prop.classification || '');
+    setIsActive(prop.isActive !== false);
+    setRemarks(prop.remarks || '');
+    setMarketingResult(prop.marketingResult || '');
 
     setModalOpen(true);
   };
@@ -247,9 +259,13 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       unitsCount: Number(unitsCount) || 0,
       availabilityDetails: availabilityString,
       specImage: specImage || '',
-      uds: category === 'Flats' ? uds : undefined,
+      uds: (category === 'Flats' || category === 'Sites') ? uds : undefined,
       width: category === 'Sites' ? width : undefined,
-      length: category === 'Sites' ? length : undefined
+      length: category === 'Sites' ? length : undefined,
+      classification: classification || undefined,
+      isActive,
+      remarks: remarks || undefined,
+      marketingResult: !isActive ? (marketingResult || undefined) : undefined
     };
 
     try {
@@ -286,6 +302,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
             {r.subCategory && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({String(r.subCategory)})</div>
             )}
+            {r.classification && (
+              <div style={{ fontSize: '0.75rem', color: '#0ea5e9', fontWeight: 600, marginTop: '2px' }}>{String(r.classification)}</div>
+            )}
           </div>
         );
       },
@@ -310,6 +329,38 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       render: (_v, row) => (
         <span className={`badge badge-${String(row.status).toLowerCase()}`}>{String(row.status)}</span>
       ),
+    },
+    {
+      key: 'isActive',
+      label: 'Activity Status',
+      render: (_v, row) => {
+        const r = row as any;
+        const active = r.isActive !== false;
+        return (
+          <span 
+            className={`badge`} 
+            style={{ 
+              backgroundColor: active ? '#e1f4e9' : (r.marketingResult === 'Success' ? '#e6f4ea' : '#fce8e6'), 
+              color: active ? '#1e7e34' : (r.marketingResult === 'Success' ? '#137333' : '#c5221f'),
+              border: `1px solid ${active ? '#c3edd5' : (r.marketingResult === 'Success' ? '#ceead6' : '#fad2cf')}`
+            }}
+          >
+            {active ? 'Active' : `Inactive (${r.marketingResult || 'No Outcome'})`}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      render: (_v, row) => {
+        const r = row as any;
+        return (
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }} title={r.remarks}>
+            {r.remarks ? (r.remarks.length > 30 ? r.remarks.substring(0, 30) + '...' : r.remarks) : '-'}
+          </span>
+        );
+      }
     },
     {
       key: 'featured',
@@ -405,9 +456,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-2 gap-2">
+                <div className="grid grid-3 gap-2">
                   <div className="form-group">
-                    <label className="form-label">Marketing Segment Category *</label>
+                    <label className="form-label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Marketing Segment *</label>
                     <select
                       className="form-control"
                       value={category}
@@ -427,7 +478,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
                   {category === 'Sites' ? (
                     <div className="form-group">
-                      <label className="form-label">Site subCategory Classification *</label>
+                      <label className="form-label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Subcategory *</label>
                       <select
                         className="form-control"
                         value={subCategory}
@@ -443,7 +494,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     </div>
                   ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
                     <div className="form-group">
-                      <label className="form-label">Residential subCategory Classification *</label>
+                      <label className="form-label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Subcategory *</label>
                       <select
                         className="form-control"
                         value={subCategory}
@@ -455,7 +506,27 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         <option value="Ready to Move">Ready to Move</option>
                       </select>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Subcategory</label>
+                      <input className="form-control" disabled value="N/A" />
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Classification *</label>
+                    <select
+                      className="form-control"
+                      value={classification}
+                      onChange={e => setClassification(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Classification</option>
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Semi Commercial">Semi Commercial</option>
+                    </select>
+                  </div>
                 </div>
 
                 {category === 'Flats' && (
@@ -473,30 +544,59 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                 )}
 
                 {category === 'Sites' && (
-                  <div className="grid grid-2 gap-2">
+                  <>
+                    <div className="grid grid-2 gap-2">
+                      <div className="form-group">
+                        <label className="form-label">Site Width (ft) *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="e.g. 30"
+                          value={width}
+                          onChange={e => {
+                            const newWidth = e.target.value;
+                            setWidth(newWidth);
+                            const w = parseFloat(newWidth);
+                            const l = parseFloat(length);
+                            if (!isNaN(w) && !isNaN(l)) {
+                              setUds(String(Math.round((w * l / 9) * 100) / 100));
+                            }
+                          }}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Site Length (ft) *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="e.g. 40"
+                          value={length}
+                          onChange={e => {
+                            const newLength = e.target.value;
+                            setLength(newLength);
+                            const w = parseFloat(width);
+                            const l = parseFloat(newLength);
+                            if (!isNaN(w) && !isNaN(l)) {
+                              setUds(String(Math.round((w * l / 9) * 100) / 100));
+                            }
+                          }}
+                          required
+                        />
+                      </div>
+                    </div>
                     <div className="form-group">
-                      <label className="form-label">Site Width (ft) *</label>
+                      <label className="form-label">Total Sq. Yards *</label>
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="e.g. 30"
-                        value={width}
-                        onChange={e => setWidth(e.target.value)}
+                        placeholder="Calculated automatically, or enter manually"
+                        value={uds}
+                        onChange={e => setUds(e.target.value)}
                         required
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Site Length (ft) *</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. 40"
-                        value={length}
-                        onChange={e => setLength(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
+                  </>
                 )}
 
                 {/* Section 2: Location & Address */}
@@ -797,6 +897,52 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         </label>
                       );
                     })}
+                  </div>
+                </div>
+
+                <div className="modal-section-title">Marketing Status &amp; Remarks</div>
+                <div className={!isActive ? "grid grid-3 gap-2" : "grid grid-2 gap-2"}>
+                  <div className="form-group">
+                    <label className="form-label">Marketing Status</label>
+                    <select
+                      className="form-control"
+                      value={isActive ? 'Active' : 'Inactive'}
+                      onChange={e => {
+                        const val = e.target.value === 'Active';
+                        setIsActive(val);
+                        if (val) {
+                          setMarketingResult('');
+                        }
+                      }}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                  {!isActive && (
+                    <div className="form-group">
+                      <label className="form-label">Deal Outcome *</label>
+                      <select
+                        className="form-control"
+                        value={marketingResult}
+                        onChange={e => setMarketingResult(e.target.value)}
+                        required={!isActive}
+                      >
+                        <option value="">Select Outcome</option>
+                        <option value="Success">Success</option>
+                        <option value="Failure">Failure</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">Success/Failure Remarks</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Lead converted successfully"
+                      value={remarks}
+                      onChange={e => setRemarks(e.target.value)}
+                    />
                   </div>
                 </div>
 

@@ -426,6 +426,13 @@ Email: jkfutureinfra@gmail.com
                 </div>
               )}
 
+              {project.classification && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Classification:</span>
+                  <strong className="text-sm text-primary">{project.classification}</strong>
+                </div>
+              )}
+
               {project.microLocation && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
                   <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Micro Location:</span>

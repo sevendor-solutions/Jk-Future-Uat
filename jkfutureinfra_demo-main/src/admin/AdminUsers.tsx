@@ -26,7 +26,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
   // Form fields
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState<'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner'>('Moderator');
+  const [role, setRole] = useState<'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture'>('Moderator');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [allowedScreens, setAllowedScreens] = useState<string[]>([]);
@@ -39,11 +39,13 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
   const getRoleDefaultScreens = (userRole: string): string[] => {
     if (userRole === 'Admin') {
-      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters'];
+      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'documents'];
     } else if (userRole === 'ProjectOwner') {
       return ['dashboard', 'projects', 'project_gallery', 'blogs', 'project_enquiries', 'careers'];
     } else if (userRole === 'MarketingOwner') {
       return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'careers'];
+    } else if (userRole === 'Architecture') {
+      return ['dashboard', 'documents', 'project_gallery'];
     } else {
       // Moderator
       return ['dashboard', 'project_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers'];
@@ -72,7 +74,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     setModalOpen(true);
   };
 
-  const handleRoleChange = (newRole: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner') => {
+  const handleRoleChange = (newRole: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture') => {
     setRole(newRole);
     setAllowedScreens(getRoleDefaultScreens(newRole));
   };
@@ -303,6 +305,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                     <option value="Admin">Admin (Full System Permissions)</option>
                     <option value="ProjectOwner">Project Owner (Manage Projects)</option>
                     <option value="MarketingOwner">Marketing Owner (Manage Showcase)</option>
+                    <option value="Architecture">Architecture (Manage Documents & Plans)</option>
                     <option value="Moderator">Moderator (General Editor)</option>
                   </select>
                 </div>

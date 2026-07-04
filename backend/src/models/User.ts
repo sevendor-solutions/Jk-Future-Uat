@@ -17,11 +17,11 @@ export class User extends Model {
     username!: string;
 
     @Column({
-        type: DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner"),
+        type: DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture"),
         allowNull: false,
         defaultValue: "Admin"
     })
-    role!: "Admin" | "Moderator" | "ProjectOwner" | "MarketingOwner";
+    role!: "Admin" | "Moderator" | "ProjectOwner" | "MarketingOwner" | "Architecture";
 
     @Column({
         type: DataType.STRING,

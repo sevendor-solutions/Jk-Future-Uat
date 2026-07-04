@@ -224,6 +224,22 @@ export class Project extends Model {
     @Column(DataType.STRING)
     length?: string;
 
+    @Column(DataType.STRING)
+    classification?: string;
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: true,
+        defaultValue: true
+    })
+    isActive?: boolean;
+
+    @Column(DataType.TEXT)
+    remarks?: string;
+
+    @Column(DataType.STRING)
+    marketingResult?: string;
+
     @Column({
         type: DataType.BOOLEAN,
         allowNull: false,

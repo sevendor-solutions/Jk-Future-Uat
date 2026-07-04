@@ -14,7 +14,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All');
   
-  const featuredProjects = projects.filter(p => p.featured);
+  const featuredProjects = projects.filter(p => p.featured && p.isActive !== false);
   const latestBlogs = blogs.slice(0, 3);
 
   // Auto-play hero slider
