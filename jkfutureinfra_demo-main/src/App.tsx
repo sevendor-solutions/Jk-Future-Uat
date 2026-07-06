@@ -143,6 +143,7 @@ function App() {
   };
 
   const handleNavigate = (page: string, category: ProjectCategory | null = null, siteCategory: string | null = null, params: any = null) => {
+    const wasAdmin = activePage === 'admin';
     setActivePage(page);
     setActiveCategory(category);
     setActiveSiteCategory(siteCategory);
@@ -157,7 +158,11 @@ function App() {
         window.location.hash = '';
       }
     }
-    refreshData(); // Sync database content on navigation
+    // Only refresh data if transitioning from the admin panel (where data could be updated)
+    // or if projects state is empty (initial load didn't complete).
+    if (wasAdmin || projects.length === 0) {
+      refreshData();
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

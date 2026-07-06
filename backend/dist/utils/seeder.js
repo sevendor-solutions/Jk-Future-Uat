@@ -1287,45 +1287,12 @@ async function seedDatabase() {
             });
         }
         // 8. Seed Site Visits (Removed static site visit data as requested)
-        // Seed Marketing Agents
-        const agentsCount = await MarketingAgent_1.MarketingAgent.count();
-        if (agentsCount === 0) {
-            console.log("🌱 Seeding Marketing Agents...");
-            await MarketingAgent_1.MarketingAgent.bulkCreate([
-                {
-                    id: "ma1",
-                    name: "G. Anand",
-                    email: "anand.g@jkfutureinfra.com",
-                    phone: "9988776655",
-                    designation: "Property Advisor",
-                    status: "active"
-                },
-                {
-                    id: "ma2",
-                    name: "M. Srinivas",
-                    email: "srinivas.m@jkfutureinfra.com",
-                    phone: "8877665544",
-                    designation: "Senior Property Advisor",
-                    status: "active"
-                },
-                {
-                    id: "ma3",
-                    name: "V. Swetha",
-                    email: "swetha.v@jkfutureinfra.com",
-                    phone: "7766554433",
-                    designation: "Customer Relationship Manager",
-                    status: "active"
-                },
-                {
-                    id: "ma4",
-                    name: "D. Prasad",
-                    email: "prasad.d@jkfutureinfra.com",
-                    phone: "6655443322",
-                    designation: "Sales Executive",
-                    status: "active"
-                }
-            ]);
-        }
+        // Seed Marketing Agents (Removed mock marketing agents as requested)
+        await MarketingAgent_1.MarketingAgent.destroy({
+            where: {
+                id: ["ma1", "ma2", "ma3", "ma4"]
+            }
+        });
         // 9. Seed Expense Categories
         const { ExpenseCategory } = require("../models/ExpenseCategory");
         const expenseCategoryCount = await ExpenseCategory.count();

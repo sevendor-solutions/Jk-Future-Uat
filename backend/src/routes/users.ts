@@ -87,7 +87,7 @@ router.post("/", async (req, res, next) => {
                             </table>
                             
                             <div style="text-align:center;margin-top:24px;">
-                                <a href="${req.headers.origin || 'http://localhost:5173'}" style="display:inline-block;padding:12px 24px;background-color:#0f2b46;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;box-shadow:0 4px 6px -1px rgba(15,43,70,0.25);">Login to Portal</a>
+                                <a href="${req.headers.origin || 'http://localhost:5173'}/#/admin" style="display:inline-block;padding:12px 24px;background-color:#0f2b46;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;box-shadow:0 4px 6px -1px rgba(15,43,70,0.25);">Login to Portal</a>
                             </div>
                         </div>
                         <p style="color:#ef4444;font-size:12px;margin:0 0 8px 0;font-weight:600;">⚠️ Security Notice:</p>
@@ -118,14 +118,17 @@ router.post("/", async (req, res, next) => {
                         greetingTimeout: 10000
                     });
 
-                    await transporter.sendMail({
+                    transporter.sendMail({
                         from: `"JK Future Infra" <${config.senderEmail || 'noreply@jkfutureinfra.com'}>`,
                         to: email,
                         subject: subject,
                         html: bodyHtml
+                    }).then(async () => {
+                        await logAuditAction(req, "Email Dispatched", `Successfully sent credentials email to "${email}" for new user: "${username}"`, "Success");
+                    }).catch(async (mailErr: any) => {
+                        console.error("Failed to send user creation credentials email:", mailErr);
+                        await logAuditAction(req, "Email Dispatch Failure", `Failed to send credentials email to "${email}" for user "${username}": ${mailErr.message || mailErr}`, "Failed");
                     });
-
-                    await logAuditAction(req, "Email Dispatched", `Successfully sent credentials email to "${email}" for new user: "${username}"`, "Success");
                 }
             }
         } catch (mailErr: any) {
