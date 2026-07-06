@@ -49,12 +49,19 @@ __decorate([
 ], User.prototype, "username", void 0);
 __decorate([
     (0, sequelize_typescript_1.Column)({
-        type: sequelize_typescript_1.DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture"),
+        type: sequelize_typescript_1.DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture", "MarketingAgent"),
         allowNull: false,
         defaultValue: "Admin"
     }),
     __metadata("design:type", String)
 ], User.prototype, "role", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true
+    }),
+    __metadata("design:type", String)
+], User.prototype, "agentId", void 0);
 __decorate([
     (0, sequelize_typescript_1.Column)({
         type: sequelize_typescript_1.DataType.STRING,
@@ -103,7 +110,7 @@ __decorate([
     __metadata("design:type", Date)
 ], User.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.BeforeCreate,
+    sequelize_typescript_1.BeforeValidate,
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [User]),
     __metadata("design:returntype", Promise)

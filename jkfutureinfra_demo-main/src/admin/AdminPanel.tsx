@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type { User, Project, Enquiry, Blog, GalleryItem, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document } from '../types';
+import type { User, Project, Enquiry, Blog, GalleryItem, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, MarketingAgent, Expense, ExpenseCategory } from '../types';
 import logoImg from '../assets/logo.png';
 import { 
   getProjects, 
@@ -18,7 +18,16 @@ import {
   getAmenities,
   getDocuments,
   loginUser,
-  logoutUser
+  logoutUser,
+  getMarketingAgents,
+  requestPasswordOtp,
+  verifyPasswordOtp,
+  resetPassword,
+  getUserEmailByUsername,
+  getExpenses,
+  getExpenseCategories,
+  getAuditLogs,
+  clearAuditLogs
 } from '../utils/db';
 
 // Subcomponents
@@ -37,6 +46,8 @@ import { AdminAuditLogs } from './AdminAuditLogs';
 import type { AuditLog } from './AdminAuditLogs';
 import { AdminSiteVisits } from './AdminSiteVisits';
 import { AdminMailConfig } from './AdminMailConfig';
+import { AdminMarketingAgents } from './AdminMarketingAgents';
+import { AdminExpenses } from './AdminExpenses';
 
 // Icons
 import { 
@@ -61,7 +72,8 @@ import {
   Search,
   ClipboardList,
   Mail,
-  Settings
+  Settings,
+  Receipt
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -83,7 +95,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
+  // Forgot password modal states
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [forgotShowNewPass, setForgotShowNewPass] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [otpResendCountdown, setOtpResendCountdown] = useState(0);
+
+
   // Database states
   const [projects, setProjects] = useState<Project[]>([]);
   const [marketing, setMarketing] = useState<Project[]>([]);
@@ -98,10 +125,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [facings, setFacings] = useState<Facing[]>([]);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
+  const [marketingAgents, setMarketingAgents] = useState<MarketingAgent[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
 
   // Multi-Tab routing state
-  const [openTabs, setOpenTabs] = useState<string[]>(['dashboard']);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [openTabs, setOpenTabs] = useState<string[]>(() => {
+    const session = getSessionUser();
+    if (session) {
+      const saved = localStorage.getItem(`admin_open_tabs_${session.username}`);
+      return saved ? JSON.parse(saved) : ['dashboard'];
+    }
+    return ['dashboard'];
+  });
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const session = getSessionUser();
+    if (session) {
+      return localStorage.getItem(`admin_active_tab_${session.username}`) || 'dashboard';
+    }
+    return 'dashboard';
+  });
 
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -134,39 +177,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Log system action
-  const logAction = (action: string, details: string, status: 'Success' | 'Warning' | 'Failed' = 'Success') => {
-    const newLog: AuditLog = {
-      id: Math.random().toString(36).substring(2, 10).toUpperCase(),
-      timestamp: new Date().toISOString(),
-      user: currentUser ? currentUser.name : 'System/Guest',
-      role: currentUser ? currentUser.role : 'Guest',
-      action,
-      details,
-      ip: '192.168.1.' + Math.floor(Math.random() * 254 + 1),
-      status
-    };
-    
-    const currentLogs = JSON.parse(localStorage.getItem('sap_audit_logs') || '[]');
-    const updated = [newLog, ...currentLogs];
-    localStorage.setItem('sap_audit_logs', JSON.stringify(updated));
-    setAuditLogs(updated);
+  const logAction = async (action: string, details: string, status: 'Success' | 'Warning' | 'Failed' = 'Success') => {
+    // Backend logs database changes automatically. For client-side UI logs, we refresh logs from backend.
+    console.log(`[Client LogAction] ${action} - ${details} - Status: ${status}`);
+    try {
+      if (sessionStorage.getItem('jk_infra_logged_user_token')) {
+        const logs = await getAuditLogs();
+        setAuditLogs(logs);
+      }
+    } catch (err) {
+      console.error("Failed to sync audit logs on action:", err);
+    }
   };
 
-  // Seed default audit logs if empty
+  // Load audit logs from backend database
   useEffect(() => {
-    const existing = localStorage.getItem('sap_audit_logs');
-    if (!existing) {
-      const defaultLogs: AuditLog[] = [
-        { id: 'LOG001', timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), user: 'Admin', role: 'Admin', action: 'User Login', details: 'Admin logged in successfully', ip: '192.168.1.5', status: 'Success' },
-        { id: 'LOG002', timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), user: 'Moderator', role: 'Moderator', action: 'Data Update', details: 'Moderator updated pricing for Sunrise Enclave', ip: '192.168.1.18', status: 'Success' },
-        { id: 'LOG003', timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), user: 'Admin', role: 'Admin', action: 'Leads Export', details: 'Exported project enquiries report to CSV format', ip: '192.168.1.5', status: 'Success' },
-        { id: 'LOG004', timestamp: new Date(Date.now() - 1 * 3600000).toISOString(), user: 'System', role: 'Admin', action: 'Backup System', details: 'Automatic SQL backup check completed', ip: '127.0.0.1', status: 'Success' }
-      ];
-      localStorage.setItem('sap_audit_logs', JSON.stringify(defaultLogs));
-      setAuditLogs(defaultLogs);
-    } else {
-      setAuditLogs(JSON.parse(existing));
-    }
+    const loadLogs = async () => {
+      try {
+        if (currentUser && sessionStorage.getItem('jk_infra_logged_user_token')) {
+          const dbLogs = await getAuditLogs();
+          setAuditLogs(dbLogs);
+        }
+      } catch (err) {
+        console.error("Failed to load audit logs from backend:", err);
+      }
+    };
+    loadLogs();
   }, [currentUser]);
 
   // Apply Fiori theme colors variables dynamically on select
@@ -300,7 +336,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Sync DB records
   const syncDBData = async () => {
     try {
-      const [projs, mktg, enqs, blgs, gal, docs, usrs, apps, cts, locs, pts, fcs, ams] = await Promise.all([
+      const [projs, mktg, enqs, blgs, gal, docs, usrs, apps, cts, locs, pts, fcs, ams, ags, exps, exCats, logs] = await Promise.all([
         getProjects(),
         getMarketing(),
         getEnquiries(),
@@ -313,7 +349,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         getLocations(),
         getPropertyTypes(),
         getFacings(),
-        getAmenities()
+        getAmenities(),
+        getMarketingAgents(),
+        getExpenses(),
+        getExpenseCategories(),
+        getAuditLogs()
       ]);
       setProjects(projs);
       setMarketing(mktg);
@@ -328,6 +368,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setPropertyTypes(pts);
       setFacings(fcs);
       setAmenities(ams);
+      setMarketingAgents(ags);
+      setExpenses(exps);
+      setExpenseCategories(exCats);
+      setAuditLogs(logs);
     } catch (err) {
       console.error("Error syncing data from backend:", err);
       onAddToast("Failed to fetch records from backend server.", "error");
@@ -373,6 +417,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         return true;
       case 'marketing_gallery':
         return currentUser.role === 'MarketingOwner';
+      case 'marketing_agents':
+        return currentUser.role === 'MarketingOwner' || currentUser.role === 'MarketingAgent';
       case 'project_enquiries':
         return currentUser.role === 'ProjectOwner';
       case 'marketing_enquiries':
@@ -384,22 +430,49 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         return true;
       case 'mail_config':
         return false;
+      case 'expenses':
+        return currentUser.role === 'ProjectOwner' || currentUser.role === 'MarketingOwner';
       default:
         return false;
     }
   };
 
-  // Redirect if currently selected tab is not allowed
+  // 1. Load saved tabs only when currentUser session changes or loads
   useEffect(() => {
     if (currentUser) {
-      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config'];
+      const savedTabs = localStorage.getItem(`admin_open_tabs_${currentUser.username}`);
+      const savedActive = localStorage.getItem(`admin_active_tab_${currentUser.username}`);
+      
+      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses'];
       const allowed = allTabs.filter(tab => hasScreenAccess(tab));
-      if (allowed.length > 0 && !allowed.includes(activeTab)) {
-        setActiveTab(allowed[0]);
-        setOpenTabs([allowed[0]]);
+
+      let loadedTabs = savedTabs ? JSON.parse(savedTabs) : ['dashboard'];
+      let loadedActive = savedActive || 'dashboard';
+
+      let finalTabs = loadedTabs.filter((t: string) => allowed.includes(t));
+      if (finalTabs.length === 0) {
+        finalTabs = allowed.length > 0 ? [allowed[0]] : ['dashboard'];
       }
+      
+      let finalActive = allowed.includes(loadedActive) ? loadedActive : (finalTabs[0] || 'dashboard');
+
+      setOpenTabs(finalTabs);
+      setActiveTab(finalActive);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser]);
+
+  // 2. Persist openTabs and activeTab when they change during session
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`admin_open_tabs_${currentUser.username}`, JSON.stringify(openTabs));
+    }
+  }, [openTabs, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`admin_active_tab_${currentUser.username}`, activeTab);
+    }
+  }, [activeTab, currentUser]);
 
   // Handle direct enquiries clicks from main dashboard
   useEffect(() => {
@@ -419,10 +492,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setSessionUser(loggedUser);
       setCurrentUser(loggedUser);
       await syncDBData();
-      
-      // Reset tabs on login
-      setOpenTabs(['dashboard']);
-      setActiveTab('dashboard');
       
       onAddToast(`Logged in successfully as ${loggedUser.name} (${loggedUser.role}).`, 'success');
       logAction('User Login', `Logged in successfully as ${loggedUser.name} (${loggedUser.role})`, 'Success');
@@ -541,6 +610,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'audit_logs': return 'System Audit Trail';
       case 'site_visits': return 'Site Visit Emails';
       case 'mail_config': return 'Mail Settings';
+      case 'marketing_agents': return 'Marketing Agents';
+      case 'expenses': return 'Expenses Ledger';
       default: return tabKey;
     }
   };
@@ -578,6 +649,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     );
   }, [enquiries, searchQuery]);
 
+  const visibleEnquiries = useMemo(() => {
+    if (currentUser?.role === 'MarketingAgent' && currentUser.agentId) {
+      const agentPropertyIds = marketing.filter(m => m.agentId === currentUser.agentId).map(m => m.id);
+      return searchedEnquiries.filter(e => e.projectAssociation && agentPropertyIds.includes(e.projectAssociation));
+    }
+    return searchedEnquiries;
+  }, [currentUser, searchedEnquiries, marketing]);
+
   const searchedBlogs = useMemo(() => {
     if (!searchQuery.trim()) return blogs;
     const query = searchQuery.toLowerCase();
@@ -588,99 +667,331 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     );
   }, [blogs, searchQuery]);
 
-  const searchedDocuments = useMemo(() => {
-    if (!searchQuery.trim()) return documents;
-    const query = searchQuery.toLowerCase();
-    return documents.filter(d => 
-      d.title.toLowerCase().includes(query) || 
-      d.category.toLowerCase().includes(query)
-    );
-  }, [documents, searchQuery]);
 
   // Render Login Gate Screen
   if (!currentUser) {
     return (
-      <div className="login-screen-wrapper">
-        <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1600&auto=format&fit=crop&q=80')" }}></div>
-        <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&auto=format&fit=crop&q=80')" }}></div>
-        <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&auto=format&fit=crop&q=80')" }}></div>
+      <>
+        <div className="login-screen-wrapper">
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1600&auto=format&fit=crop&q=80')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&auto=format&fit=crop&q=80')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&auto=format&fit=crop&q=80')" }}></div>
 
-        <div className="login-card">
-          <div className="login-card-header">
-            <img 
-              src={logoImg} 
-              alt="JK Future Infra Logo" 
-              style={{ height: '130px', width: 'auto', display: 'block', margin: '0 auto 0.75rem', objectFit: 'contain' }} 
-            />
-            <h2>Log In <span style={{ fontWeight: 300 }}>to your account</span></h2>
-          </div>
-          
-          <div className="login-card-body">
-            <form onSubmit={handleLoginSubmit}>
-              <div className="login-form-group">
-                <input 
-                  type="text" 
-                  className="login-form-control" 
-                  placeholder="Username" 
-                  value={usernameInput}
-                  onChange={e => setUsernameInput(e.target.value)}
-                  required
-                />
-              </div>
-              
-              <div className="login-form-group" style={{ position: 'relative' }}>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  className="login-form-control" 
-                  placeholder="Password" 
-                  value={passwordInput}
-                  onChange={e => setPasswordInput(e.target.value)}
-                  required
-                  style={{ paddingRight: '40px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#64748b',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  title={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+          <div className="login-card">
+            <div className="login-card-header">
+              <img 
+                src={logoImg} 
+                alt="JK Future Infra Logo" 
+                style={{ height: '130px', width: 'auto', display: 'block', margin: '0 auto 0.75rem', objectFit: 'contain' }} 
+              />
+              <h2>Log In <span style={{ fontWeight: 300 }}>to your account</span></h2>
+            </div>
+            
+            <div className="login-card-body">
+              <form onSubmit={handleLoginSubmit}>
+                <div className="login-form-group">
+                  <input 
+                    type="text" 
+                    className="login-form-control" 
+                    placeholder="Username" 
+                    value={usernameInput}
+                    onChange={e => setUsernameInput(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="login-form-group" style={{ position: 'relative' }}>
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    className="login-form-control" 
+                    placeholder="Password" 
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                    required
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
 
-              <div className="login-actions-wrapper">
-                <button 
-                  type="button" 
-                  onClick={() => onNavigate('home')} 
-                  className="login-btn-back-link"
-                >
-                  ← Back to site
-                </button>
-                <button type="submit" className="login-btn-submit">
-                  Log In
-                </button>
-              </div>
-            </form>
-          </div>
+                <div className="login-actions-wrapper">
+                  <button 
+                    type="button" 
+                    onClick={() => onNavigate('home')} 
+                    className="login-btn-back-link"
+                  >
+                    ← Back to site
+                  </button>
+                  <button type="submit" className="login-btn-submit">
+                    Log In
+                  </button>
+                </div>
 
-          <div className="login-card-footer-copyright">
-            <div>© 2026 JK Future Infra</div>
+                {/* Forgot Password link */}
+                <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotOpen(true); setForgotStep(1); setForgotError(''); setForgotSuccess(''); setForgotUsername(usernameInput); setForgotEmail(''); setForgotOtp(''); setForgotNewPassword(''); setForgotConfirmPassword(''); }}
+                    style={{ background: 'none', border: 'none', color: '#0f2b46', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline', opacity: 0.7 }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="login-card-footer-copyright">
+              <div>© 2026 JK Future Infra</div>
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* ── Forgot Password Modal ── */}
+        {forgotOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '420px', margin: '1rem', overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+
+              {/* Modal Header */}
+              <div style={{ background: 'linear-gradient(135deg, #0f2b46 0%, #1a436b 100%)', padding: '1.5rem', color: 'white', position: 'relative' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>🔐</div>
+                <h3 style={{ margin: 0, fontFamily: 'Outfit, sans-serif', fontSize: '1.15rem', color: 'white' }}>
+                  {forgotStep === 1 && 'Reset your password'}
+                  {forgotStep === 2 && 'Enter the OTP'}
+                  {forgotStep === 3 && 'Set new password'}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', opacity: 0.75, color: 'white' }}>
+                  {forgotStep === 1 && 'Enter your registered email to receive a one-time password.'}
+                  {forgotStep === 2 && `A 6-digit OTP was sent to ${forgotEmail}. Enter it below.`}
+                  {forgotStep === 3 && 'Create a strong new password for your account.'}
+                </p>
+                {/* Step indicator */}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '1rem' }}>
+                  {[1,2,3].map(s => (
+                    <div key={s} style={{ flex: 1, height: '3px', borderRadius: '99px', background: forgotStep >= s ? '#f2b705' : 'rgba(255,255,255,0.25)' }} />
+                  ))}
+                </div>
+                <button onClick={() => setForgotOpen(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              </div>
+
+              <div style={{ padding: '1.5rem' }}>
+                {forgotError && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
+                    ⚠️ {forgotError}
+                  </div>
+                )}
+                {forgotSuccess && (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#16a34a', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
+                    ✅ {forgotSuccess}
+                  </div>
+                )}
+
+                {/* STEP 1: Enter Username & Fetch Email */}
+                {forgotStep === 1 && (
+                  !forgotEmail ? (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!forgotUsername.trim()) { setForgotError('Please enter a username.'); return; }
+                      setForgotError(''); setForgotLoading(true);
+                      try {
+                        const email = await getUserEmailByUsername(forgotUsername);
+                        setForgotEmail(email);
+                      } catch(err: any) {
+                        setForgotError(err.message || 'Username not found.');
+                      } finally { setForgotLoading(false); }
+                    }}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>Username</label>
+                        <input
+                          type="text"
+                          className="login-form-control"
+                          placeholder="Enter your staff username"
+                          value={forgotUsername}
+                          onChange={e => setForgotUsername(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <button type="submit" className="login-btn-submit" style={{ width: '100%', marginTop: '0.5rem', opacity: forgotLoading ? 0.7 : 1 }} disabled={forgotLoading}>
+                        {forgotLoading ? 'Verifying username...' : 'Find Account →'}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      setForgotError(''); setForgotLoading(true);
+                      try {
+                        await requestPasswordOtp(forgotEmail);
+                        setForgotStep(2);
+                        setOtpResendCountdown(60);
+                        const timer = setInterval(() => setOtpResendCountdown(c => { if (c <= 1) { clearInterval(timer); return 0; } return c - 1; }), 1000);
+                      } catch(err: any) {
+                        setForgotError(err.message || 'Failed to send OTP. Try again.');
+                      } finally { setForgotLoading(false); }
+                    }}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>Username</label>
+                        <input
+                          type="text"
+                          className="login-form-control"
+                          value={forgotUsername}
+                          disabled
+                          style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                        />
+                      </div>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>Registered Email Address</label>
+                        <input
+                          type="email"
+                          className="login-form-control"
+                          value={forgotEmail}
+                          disabled
+                          style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => { setForgotEmail(''); setForgotError(''); }} 
+                          className="login-btn-back-link" 
+                          style={{ flex: 1, padding: '0.65rem', border: '1.5px solid #cbd5e1', borderRadius: '8px', background: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#475569' }}
+                        >
+                          ← Change User
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="login-btn-submit" 
+                          style={{ flex: 2, opacity: forgotLoading ? 0.7 : 1 }} 
+                          disabled={forgotLoading}
+                        >
+                          {forgotLoading ? 'Sending OTP...' : 'Send OTP →'}
+                        </button>
+                      </div>
+                    </form>
+                  )
+                )}
+
+                {/* STEP 2: Enter OTP */}
+                {forgotStep === 2 && (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setForgotError(''); setForgotLoading(true);
+                    try {
+                      await verifyPasswordOtp(forgotEmail, forgotOtp);
+                      setForgotStep(3);
+                    } catch(err: any) {
+                      setForgotError(err.message || 'Invalid OTP. Please try again.');
+                    } finally { setForgotLoading(false); }
+                  }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>6-Digit OTP</label>
+                      <input
+                        type="text"
+                        className="login-form-control"
+                        placeholder="_ _ _ _ _ _"
+                        value={forgotOtp}
+                        onChange={e => setForgotOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                        maxLength={6}
+                        required
+                        autoFocus
+                        style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '8px', fontFamily: 'monospace' }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>OTP valid for 10 minutes</span>
+                        {otpResendCountdown > 0 ? (
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Resend in {otpResendCountdown}s</span>
+                        ) : (
+                          <button type="button" style={{ background: 'none', border: 'none', color: '#0f2b46', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                            onClick={async () => {
+                              setForgotError('');
+                              try { await requestPasswordOtp(forgotEmail); setOtpResendCountdown(60); const t = setInterval(() => setOtpResendCountdown(c => { if (c<=1){clearInterval(t);return 0;} return c-1; }), 1000); }
+                              catch(err:any) { setForgotError(err.message); }
+                            }}
+                          >Resend OTP</button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button type="button" onClick={() => { setForgotStep(1); setForgotOtp(''); setForgotError(''); }} style={{ flex: 1, padding: '0.65rem', border: '1.5px solid #cbd5e1', borderRadius: '8px', background: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#475569' }}>← Back</button>
+                      <button type="submit" className="login-btn-submit" style={{ flex: 2, opacity: forgotLoading ? 0.7 : 1 }} disabled={forgotLoading || forgotOtp.length < 6}>
+                        {forgotLoading ? 'Verifying...' : 'Verify OTP →'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STEP 3: Set New Password */}
+                {forgotStep === 3 && (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (forgotNewPassword !== forgotConfirmPassword) { setForgotError('Passwords do not match.'); return; }
+                    if (forgotNewPassword.length < 6) { setForgotError('Password must be at least 6 characters.'); return; }
+                    setForgotError(''); setForgotLoading(true);
+                    try {
+                      await resetPassword(forgotEmail, forgotOtp, forgotNewPassword);
+                      setForgotSuccess('Password reset successfully! You can now log in with your new password.');
+                      setTimeout(() => setForgotOpen(false), 2500);
+                    } catch(err: any) {
+                      setForgotError(err.message || 'Reset failed. Please try again.');
+                    } finally { setForgotLoading(false); }
+                  }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={forgotShowNewPass ? 'text' : 'password'}
+                          className="login-form-control"
+                          placeholder="Minimum 6 characters"
+                          value={forgotNewPassword}
+                          onChange={e => setForgotNewPassword(e.target.value)}
+                          required
+                          autoFocus
+                          style={{ paddingRight: '40px' }}
+                        />
+                        <button type="button" onClick={() => setForgotShowNewPass(!forgotShowNewPass)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                          {forgotShowNewPass ? <EyeOff size={16}/> : <Eye size={16}/>}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f2b46', marginBottom: '6px' }}>Confirm Password</label>
+                      <input
+                        type={forgotShowNewPass ? 'text' : 'password'}
+                        className="login-form-control"
+                        placeholder="Re-enter new password"
+                        value={forgotConfirmPassword}
+                        onChange={e => setForgotConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="login-btn-submit" style={{ width: '100%', opacity: forgotLoading ? 0.7 : 1 }} disabled={forgotLoading}>
+                      {forgotLoading ? 'Resetting...' : '✓ Reset Password'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -760,6 +1071,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     data-tooltip="Manage Marketing"
                   >
                     <Layers size={16} /> <span className="admin-sidebar-link-text">Manage Marketing</span>
+                  </button>
+                </li>
+              )}
+
+              {hasScreenAccess('marketing_agents') && (
+                <li className="admin-sidebar-item">
+                  <button 
+                    onClick={() => handleOpenTab('marketing_agents')} 
+                    className={`admin-sidebar-link ${activeTab === 'marketing_agents' ? 'active' : ''}`}
+                    data-tooltip="Marketing Agents"
+                  >
+                    <Users size={16} /> <span className="admin-sidebar-link-text">Marketing Agents</span>
                   </button>
                 </li>
               )}
@@ -904,6 +1227,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </button>
                 </li>
               )}
+            </div>
+          )}
+
+          {/* Group: Finance & Accounts */}
+          {hasScreenAccess('expenses') && (
+            <div className="admin-sidebar-group">
+              <div className="admin-sidebar-group-title">Finance & Accounts</div>
+              <li className="admin-sidebar-item">
+                <button 
+                  onClick={() => handleOpenTab('expenses')} 
+                  className={`admin-sidebar-link ${activeTab === 'expenses' ? 'active' : ''}`}
+                  data-tooltip="Expenses Ledger"
+                >
+                  <Receipt size={16} /> <span className="admin-sidebar-link-text">Expenses Ledger</span>
+                </button>
+              </li>
             </div>
           )}
 
@@ -1153,6 +1492,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               marketing={searchedMarketing}
               enquiries={searchedEnquiries}
               blogs={searchedBlogs}
+              expenses={expenses}
+              hasExpenseAccess={hasScreenAccess('expenses')}
               onSetTab={handleOpenTab}
               onSelectEnquiry={handleSelectEnquiryReview}
               role={currentUser.role}
@@ -1185,10 +1526,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               propertyTypes={propertyTypes}
               facings={facings}
               amenities={amenities}
+              agents={marketingAgents}
               onRefresh={() => { syncDBData(); logAction('Data Sync', 'Refreshed marketing lists from SQL database', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);
                 if (type === 'success') logAction('Marketing Update', msg, 'Success');
+              }}
+              onConfirm={handleConfirmAction}
+            />
+          )}
+
+          {activeTab === 'marketing_agents' && hasScreenAccess('marketing_agents') && (
+            <AdminMarketingAgents 
+              agents={currentUser?.role === 'MarketingAgent' && currentUser.agentId ? marketingAgents.filter(a => a.id === currentUser.agentId) : marketingAgents}
+              currentUser={currentUser}
+              onRefresh={() => { syncDBData(); logAction('Data Sync', 'Refreshed marketing agents list from SQL database', 'Success'); }}
+              onAddToast={(msg, type) => {
+                onAddToast(msg, type);
+                if (type === 'success') logAction('Marketing Agent Update', msg, 'Success');
               }}
               onConfirm={handleConfirmAction}
             />
@@ -1244,7 +1599,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'documents' && hasScreenAccess('documents') && (
             <AdminDocuments 
-              documents={searchedDocuments}
+              documents={documents}
               projects={searchedProjects}
               marketing={searchedMarketing}
               onRefresh={() => { syncDBData(); logAction('Documents Sync', 'Synced document storage repository', 'Success'); }}
@@ -1258,7 +1613,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'project_enquiries' && hasScreenAccess('project_enquiries') && (
             <AdminEnquiries 
-              enquiries={searchedEnquiries}
+              enquiries={visibleEnquiries}
               type="projects"
               selectedEnquiry={focusedEnquiry}
               onClearSelected={() => setFocusedEnquiry(null)}
@@ -1273,7 +1628,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'marketing_enquiries' && hasScreenAccess('marketing_enquiries') && (
             <AdminEnquiries 
-              enquiries={searchedEnquiries}
+              enquiries={visibleEnquiries}
               type="marketing"
               selectedEnquiry={focusedEnquiry}
               onClearSelected={() => setFocusedEnquiry(null)}
@@ -1302,6 +1657,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <AdminUsers 
               users={users}
               currentUser={currentUser}
+              agents={marketingAgents}
               onRefresh={async () => {
                 await syncDBData();
                 logAction('Staff Sync', 'Refreshed staff configurations', 'Success');
@@ -1333,6 +1689,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               propertyTypes={propertyTypes}
               facings={facings}
               amenities={amenities}
+              expenseCategories={expenseCategories}
               onRefresh={() => { syncDBData(); logAction('Masters Sync', 'Synced Masters configuration matrices', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);
@@ -1342,18 +1699,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
+          {activeTab === 'expenses' && hasScreenAccess('expenses') && (
+            <AdminExpenses 
+              expenses={expenses}
+              expenseCategories={expenseCategories}
+              projects={projects}
+              locations={locations}
+              onRefresh={() => { syncDBData(); logAction('Expenses Sync', 'Synced Expenses records ledger', 'Success'); }}
+              onAddToast={(msg, type) => {
+                onAddToast(msg, type);
+                if (type === 'success') logAction('Expenses Update', msg, 'Success');
+              }}
+              onConfirm={handleConfirmAction}
+            />
+          )}
+
           {activeTab === 'audit_logs' && hasScreenAccess('audit_logs') && (
             <AdminAuditLogs 
               logs={auditLogs}
-              onClearLogs={() => {
-                localStorage.removeItem('sap_audit_logs');
-                setAuditLogs([]);
-                onAddToast('System audit trail log has been cleared.', 'info');
+              onClearLogs={async () => {
+                try {
+                  await clearAuditLogs();
+                  setAuditLogs([]);
+                  onAddToast('System audit trail log has been cleared.', 'info');
+                } catch (err) {
+                  onAddToast('Failed to clear audit logs.', 'error');
+                }
               }}
-              onRefresh={() => {
-                const refreshed = JSON.parse(localStorage.getItem('sap_audit_logs') || '[]');
-                setAuditLogs(refreshed);
-                onAddToast('Audit logs trail refreshed.', 'success');
+              onRefresh={async () => {
+                try {
+                  const refreshed = await getAuditLogs();
+                  setAuditLogs(refreshed);
+                  onAddToast('Audit logs trail refreshed.', 'success');
+                } catch (err) {
+                  onAddToast('Failed to refresh audit logs.', 'error');
+                }
               }}
             />
           )}

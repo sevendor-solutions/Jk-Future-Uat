@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
-import { Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity, MarketingAgent } from '../types';
+import { Edit2, Trash2, CheckCircle2, XCircle, X, Share2, ChevronDown } from 'lucide-react';
 import { addMarketing, updateMarketing, deleteMarketing, uploadImage, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -12,10 +12,168 @@ interface AdminMarketingProps {
   propertyTypes: PropertyType[];
   facings: Facing[];
   amenities: Amenity[];
+  agents?: MarketingAgent[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
 }
+
+interface MultiSelectDropdownProps {
+  label: string;
+  options: { label: string; value: string }[];
+  selectedValues: string[];
+  onChange: (values: string[]) => void;
+}
+
+const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
+  label,
+  options,
+  selectedValues,
+  onChange
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleToggle = () => setIsOpen(!isOpen);
+
+  const handleOptionToggle = (val: string) => {
+    if (selectedValues.includes(val)) {
+      onChange(selectedValues.filter(v => v !== val));
+    } else {
+      onChange([...selectedValues, val]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onChange(options.map(o => o.value));
+  };
+
+  const handleClear = () => {
+    onChange([]);
+  };
+
+  const displayText = useMemo(() => {
+    if (selectedValues.length === 0) return 'All';
+    if (selectedValues.length === options.length) return 'All Selected';
+    if (selectedValues.length > 1) return `${selectedValues.length} Selected`;
+    const opt = options.find(o => o.value === selectedValues[0]);
+    return opt ? opt.label : selectedValues[0];
+  }, [selectedValues, options]);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+      <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{label}:</label>
+      <div 
+        onClick={handleToggle}
+        className="form-control"
+        style={{
+          padding: '0.2rem 1.75rem 0.2rem 0.4rem',
+          height: '28px',
+          minWidth: '120px',
+          maxWidth: '180px',
+          fontSize: '0.8rem',
+          display: 'inline-flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+          position: 'relative',
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          backgroundColor: isOpen ? '#f1f5f9' : '#ffffff',
+          borderColor: isOpen ? '#0854a0' : '#cbd5e1',
+          borderRadius: '4px'
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{displayText}</span>
+        <ChevronDown 
+          size={12} 
+          style={{ 
+            position: 'absolute', 
+            right: '6px', 
+            top: '50%', 
+            transform: 'translateY(-50%)',
+            color: 'var(--text-muted)'
+          }} 
+        />
+      </div>
+
+      {isOpen && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '32px',
+            left: '45px',
+            zIndex: 1000,
+            minWidth: '180px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            maxHeight: '220px',
+            overflowY: 'auto',
+            padding: '4px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderBottom: '1px solid #f1f5f9', marginBottom: '4px' }}>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleSelectAll(); }}
+              style={{ background: 'none', border: 'none', color: '#0854a0', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+            >
+              Select All
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleClear(); }}
+              style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+            >
+              Clear
+            </button>
+          </div>
+          {options.map(opt => {
+            const isChecked = selectedValues.includes(opt.value);
+            return (
+              <div 
+                key={opt.value}
+                onClick={(e) => { e.stopPropagation(); handleOptionToggle(opt.value); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  color: isChecked ? '#0f2b46' : '#334155',
+                  backgroundColor: isChecked ? '#eff6ff' : 'transparent',
+                  transition: 'background-color 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = isChecked ? '#eff6ff' : '#f8fafc'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = isChecked ? '#eff6ff' : 'transparent'}
+              >
+                <input 
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => {}} // handled by parent onClick
+                  style={{ marginRight: '8px', width: '13px', height: '13px', cursor: 'pointer' }}
+                />
+                <span style={{ flexGrow: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   marketing,
@@ -24,12 +182,23 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   propertyTypes,
   facings,
   amenities,
+  agents = [],
   onRefresh,
   onAddToast,
   onConfirm
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Project | null>(null);
+  const [selectedAgentFilters, setSelectedAgentFilters] = useState<string[]>([]);
+  const [selectedCityFilters, setSelectedCityFilters] = useState<string[]>([]);
+  const [selectedCategoryFilters, setSelectedCategoryFilters] = useState<string[]>([]);
+  const [selectedLocationFilters, setSelectedLocationFilters] = useState<string[]>([]);
+  const [selectedFacingFilters, setSelectedFacingFilters] = useState<string[]>([]);
+  const [selectedPropertyTypeFilters, setSelectedPropertyTypeFilters] = useState<string[]>([]);
+  const [sharingProperty, setSharingProperty] = useState<Project | null>(null);
+  const [shareMapEnabled, setShareMapEnabled] = useState(false);
+  const [sharingFilteredLink, setSharingFilteredLink] = useState(false);
+  const [filterShareMapEnabled, setFilterShareMapEnabled] = useState(false);
 
   // Upload states
   const [uploadingElevation, setUploadingElevation] = useState(false);
@@ -51,10 +220,39 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
   const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+
+    const currentUrls = specImage.split(',').map(u => u.trim()).filter(Boolean);
+    const duplicates: string[] = [];
+    const validFiles: File[] = [];
+
+    for (const file of Array.from(e.target.files)) {
+      const dotIndex = file.name.lastIndexOf('.');
+      const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
+      
+      const isDuplicate = currentUrls.some(url => {
+        const decodedUrl = decodeURIComponent(url);
+        const urlFile = decodedUrl.split('/').pop() || '';
+        return urlFile.toLowerCase().includes(baseName.toLowerCase());
+      });
+
+      if (isDuplicate) {
+        duplicates.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (duplicates.length > 0) {
+      onAddToast(`Image(s) already uploaded: ${duplicates.join(', ')}`, 'error');
+      if (validFiles.length === 0) {
+        e.target.value = '';
+        return;
+      }
+    }
+
     setUploadingSpecImages(true);
     try {
-      const urls = await uploadMultipleImages(e.target.files, 'MMS');
-      const currentUrls = specImage.split(',').map(u => u.trim()).filter(Boolean);
+      const urls = await uploadMultipleImages(validFiles, 'MMS');
       const combined = [...currentUrls, ...urls].join(', ');
       setSpecImage(combined);
       onAddToast('Blueprint image(s) uploaded successfully!', 'success');
@@ -62,6 +260,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       onAddToast(err.message || 'Blueprint upload failed', 'error');
     } finally {
       setUploadingSpecImages(false);
+      e.target.value = '';
     }
   };
 
@@ -114,6 +313,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [isActive, setIsActive] = useState(true);
   const [remarks, setRemarks] = useState('');
   const [marketingResult, setMarketingResult] = useState('');
+  const [agentId, setAgentId] = useState('');
 
   const handleOpenAdd = () => {
     setEditingProperty(null);
@@ -147,6 +347,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setIsActive(true);
     setRemarks('');
     setMarketingResult('');
+    setAgentId('');
 
     setModalOpen(true);
   };
@@ -190,6 +391,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setIsActive(prop.isActive !== false);
     setRemarks(prop.remarks || '');
     setMarketingResult(prop.marketingResult || '');
+    setAgentId(prop.agentId || '');
 
     setModalOpen(true);
   };
@@ -210,6 +412,55 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     e.preventDefault();
     if (!name.trim() || !location.trim() || !description.trim()) {
       onAddToast('Please fill in all mandatory fields', 'error');
+      return;
+    }
+
+    if (!agentId) {
+      onAddToast('Please assign a marketing agent to this property', 'error');
+      return;
+    }
+
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+      onAddToast('Latitude must be a valid number between -90 and 90', 'error');
+      return;
+    }
+    if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
+      onAddToast('Longitude must be a valid number between -180 and 180', 'error');
+      return;
+    }
+
+    const priceVal = Number(priceValue);
+    if (isNaN(priceVal) || priceVal < 0) {
+      onAddToast('Price Value must be a valid positive number', 'error');
+      return;
+    }
+
+    const floorsNum = Number(floors);
+    if (isNaN(floorsNum) || floorsNum < 0) {
+      onAddToast('Floors must be a valid positive number', 'error');
+      return;
+    }
+
+    const unitsNum = Number(unitsCount);
+    if (isNaN(unitsNum) || unitsNum < 0) {
+      onAddToast('Units Count must be a valid positive number', 'error');
+      return;
+    }
+
+    if (category === 'Sites') {
+      if (width && (isNaN(Number(width)) || Number(width) <= 0)) {
+        onAddToast('Width must be a positive number', 'error');
+        return;
+      }
+      if (length && (isNaN(Number(length)) || Number(length) <= 0)) {
+        onAddToast('Length must be a positive number', 'error');
+        return;
+      }
+    }
+    if (uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
+      onAddToast('UDS must be a positive number', 'error');
       return;
     }
 
@@ -282,7 +533,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       classification: classification || undefined,
       isActive,
       remarks: remarks || undefined,
-      marketingResult: !isActive ? (marketingResult || undefined) : undefined
+      marketingResult: !isActive ? (marketingResult || undefined) : undefined,
+      agentId: agentId || undefined
     };
 
     try {
@@ -299,6 +551,123 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       onAddToast('Failed to save marketing property.', 'error');
     }
   };
+
+  const filteredMarketingData = useMemo(() => {
+    return marketing.filter(item => {
+      const matchesAgent = selectedAgentFilters.length === 0 || selectedAgentFilters.includes(item.agentId || '');
+      const matchesCity = selectedCityFilters.length === 0 || selectedCityFilters.includes(item.city || '');
+      const matchesCategory = selectedCategoryFilters.length === 0 || selectedCategoryFilters.includes(item.category || '');
+      const matchesLocation = selectedLocationFilters.length === 0 || selectedLocationFilters.includes(item.microLocation || '');
+      const matchesFacing = selectedFacingFilters.length === 0 || (item.facing && item.facing.split(',').map(f => f.trim()).some(f => selectedFacingFilters.includes(f)));
+      const matchesPropertyType = selectedPropertyTypeFilters.length === 0 || (item.availabilityDetails && selectedPropertyTypeFilters.some(t => item.availabilityDetails?.includes(t)));
+      return matchesAgent && matchesCity && matchesCategory && matchesLocation && matchesFacing && matchesPropertyType;
+    });
+  }, [marketing, selectedAgentFilters, selectedCityFilters, selectedCategoryFilters, selectedLocationFilters, selectedFacingFilters, selectedPropertyTypeFilters]);
+
+  // Extract unique cities from marketing projects
+  const uniqueCities = useMemo(() => {
+    const set = new Set<string>();
+    marketing.forEach(item => { if (item.city) set.add(item.city); });
+    return Array.from(set).sort();
+  }, [marketing]);
+
+  // Extract unique locations from marketing projects
+  const uniqueLocations = useMemo(() => {
+    const set = new Set<string>();
+    marketing.forEach(item => { if (item.microLocation) set.add(item.microLocation); });
+    return Array.from(set).sort();
+  }, [marketing]);
+
+  // Helper to build the share URL params from all filters
+  const buildShareParams = (includeMap = false) => {
+    const params = new URLSearchParams();
+    params.set('page', 'marketing');
+    if (selectedCategoryFilters.length > 0) params.set('category', selectedCategoryFilters.join(','));
+    if (selectedCityFilters.length > 0) params.set('city', selectedCityFilters.join(','));
+    if (selectedLocationFilters.length > 0) params.set('location', selectedLocationFilters.join(','));
+    if (selectedFacingFilters.length > 0) params.set('facing', selectedFacingFilters.join(','));
+    if (selectedPropertyTypeFilters.length > 0) params.set('propertyType', selectedPropertyTypeFilters.join(','));
+    if (selectedAgentFilters.length > 0) params.set('agent', selectedAgentFilters.join(','));
+    if (includeMap) params.set('showMap', 'true');
+    return `${window.location.origin}/?${params.toString()}`;
+  };
+
+  const agentFilterDropdown = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginRight: '0.5rem' }}>
+      <MultiSelectDropdown 
+        label="Agent"
+        options={agents.map(a => ({ label: a.name, value: a.id }))}
+        selectedValues={selectedAgentFilters}
+        onChange={setSelectedAgentFilters}
+      />
+
+      <MultiSelectDropdown 
+        label="City"
+        options={uniqueCities.map(c => ({ label: c, value: c }))}
+        selectedValues={selectedCityFilters}
+        onChange={setSelectedCityFilters}
+      />
+
+      <MultiSelectDropdown 
+        label="Location"
+        options={uniqueLocations.map(l => ({ label: l, value: l }))}
+        selectedValues={selectedLocationFilters}
+        onChange={setSelectedLocationFilters}
+      />
+
+      <MultiSelectDropdown 
+        label="Category"
+        options={[
+          { label: 'Flats', value: 'Flats' },
+          { label: 'Villas', value: 'Villas' },
+          { label: 'Individual Houses', value: 'Individual Houses' },
+          { label: 'Sites', value: 'Sites' },
+          { label: 'Duplex', value: 'Duplex' }
+        ]}
+        selectedValues={selectedCategoryFilters}
+        onChange={setSelectedCategoryFilters}
+      />
+
+      <MultiSelectDropdown 
+        label="Facing"
+        options={facings.map(f => ({ label: f.name, value: f.name }))}
+        selectedValues={selectedFacingFilters}
+        onChange={setSelectedFacingFilters}
+      />
+
+      <MultiSelectDropdown 
+        label="Type"
+        options={propertyTypes.map(pt => ({ label: pt.name, value: pt.name }))}
+        selectedValues={selectedPropertyTypeFilters}
+        onChange={setSelectedPropertyTypeFilters}
+      />
+
+      <button 
+        onClick={() => setSharingFilteredLink(true)}
+        className="alv-toolbar-btn"
+        style={{ 
+          padding: '0.2rem 0.75rem', 
+          fontSize: '0.8rem', 
+          fontWeight: 600,
+          color: '#16a34a', 
+          backgroundColor: '#f0fdf4',
+          borderColor: '#16a34a', 
+          height: '28px', 
+          width: 'auto',
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          gap: '0.35rem',
+          borderRadius: '4px',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
+        }}
+        title="Share Filtered View Link"
+      >
+        <Share2 size={13} /> Share
+      </button>
+    </div>
+  );
 
   const marketingColumns: ALVColumn[] = [
     {
@@ -346,6 +715,17 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       render: (_v, row) => (
         <span className={`badge badge-${String(row.status).toLowerCase()}`}>{String(row.status)}</span>
       ),
+    },
+    {
+      key: 'agentId',
+      label: 'Assigned Agent',
+      render: (_v, row) => {
+        const r = row as any;
+        const agent = agents.find(a => a.id === r.agentId);
+        return (
+          <span style={{ fontWeight: 600 }}>{agent ? agent.name : 'Unassigned'}</span>
+        );
+      }
     },
     {
       key: 'isActive',
@@ -402,6 +782,14 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       render: (_v, row) => (
         <div className="admin-table-actions" style={{ justifyContent: 'center' }}>
           <button
+            onClick={() => setSharingProperty(row as unknown as Project)}
+            className="alv-toolbar-btn"
+            title="Share"
+            style={{ color: '#16a34a', borderColor: '#16a34a' }}
+          >
+            <Share2 size={13} />
+          </button>
+          <button
             onClick={() => handleOpenEdit(row as unknown as Project)}
             className="alv-toolbar-btn"
             title="Edit"
@@ -427,7 +815,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         title="Manage Marketing"
         subtitle={`${marketing.length} ${marketing.length === 1 ? 'item' : 'items'}`}
         columns={marketingColumns}
-        data={marketing as unknown as Record<string, unknown>[]}
+        data={filteredMarketingData as unknown as Record<string, unknown>[]}
+        extraToolbarActions={agentFilterDropdown}
         rowKey="id"
         onAdd={handleOpenAdd}
         addLabel="Add Marketing"
@@ -1020,6 +1409,21 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
+                <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                  <label className="form-label font-bold">Assigned Marketing Agent <span style={{ color: 'var(--red)' }}>*</span></label>
+                  <select
+                    className="form-control"
+                    value={agentId}
+                    onChange={e => setAgentId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Agent (Required)</option>
+                    {agents.map(a => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.designation || 'Agent'})</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="checkbox-group-premium">
                   <input
                     type="checkbox"
@@ -1036,6 +1440,162 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                 <button type="submit" className="btn btn-secondary btn-sm">Save Property</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {sharingProperty && (
+        <div className="modal-overlay" onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <div className="modal-header border-bottom p-3 flex justify-between align-center">
+              <h3 style={{ margin: 0 }}>Share Property Link</h3>
+              <button onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <XCircle size={20} className="text-muted" />
+              </button>
+            </div>
+            <div className="p-3" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
+                Share the public showcase page of <strong>{sharingProperty.name}</strong> with clients or partners.
+              </p>
+
+              {/* Google Maps toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <input
+                  type="checkbox"
+                  id="chkShareMap"
+                  checked={shareMapEnabled}
+                  onChange={e => setShareMapEnabled(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="chkShareMap" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                  Include Google Map Location in shared link
+                </label>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label font-bold text-xs">Direct Link</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    readOnly 
+                    value={`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`} 
+                    style={{ backgroundColor: '#f8fafc', fontSize: '0.85rem' }}
+                  />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`);
+                      onAddToast('Share link copied to clipboard!', 'success');
+                    }}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <a 
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `Check out this property: *${sharingProperty.name}* at ${sharingProperty.location}.\nPrice: ${sharingProperty.priceRange}\nView details here: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary btn-sm flex-1 text-center"
+                  style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  Share on WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sharingFilteredLink && (
+        <div className="modal-overlay" onClick={() => setSharingFilteredLink(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header border-bottom p-3 flex justify-between align-center">
+              <h3 style={{ margin: 0 }}>Share Filtered Search</h3>
+              <button onClick={() => setSharingFilteredLink(false)} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <XCircle size={20} className="text-muted" />
+              </button>
+            </div>
+            <div className="p-3" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
+                Copy and share the link to the public website with your currently applied filters pre-configured.
+              </p>
+
+              {/* Google Maps toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <input
+                  type="checkbox"
+                  id="chkFilterShareMap"
+                  checked={filterShareMapEnabled}
+                  onChange={e => setFilterShareMapEnabled(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="chkFilterShareMap" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                  Include Google Map Location in shared link
+                </label>
+              </div>
+              
+              <div style={{ padding: '0.5rem', backgroundColor: '#f1f5f9', borderRadius: '6px', fontSize: '0.85rem' }}>
+                <strong>Active Filters:</strong>
+                <ul style={{ margin: '0.25rem 0 0 1rem', padding: 0, listStyle: 'disc' }}>
+                  {selectedAgentFilters.length > 0 && <li>Agent: {selectedAgentFilters.map(id => agents.find(a => a.id === id)?.name || id).join(', ')}</li>}
+                  {selectedCityFilters.length > 0 && <li>City: {selectedCityFilters.join(', ')}</li>}
+                  {selectedLocationFilters.length > 0 && <li>Location: {selectedLocationFilters.join(', ')}</li>}
+                  {selectedCategoryFilters.length > 0 && <li>Category: {selectedCategoryFilters.join(', ')}</li>}
+                  {selectedFacingFilters.length > 0 && <li>Facing: {selectedFacingFilters.join(', ')}</li>}
+                  {selectedPropertyTypeFilters.length > 0 && <li>Property Type: {selectedPropertyTypeFilters.join(', ')}</li>}
+                  {selectedAgentFilters.length === 0 && selectedCityFilters.length === 0 && selectedLocationFilters.length === 0 && selectedCategoryFilters.length === 0 && selectedFacingFilters.length === 0 && selectedPropertyTypeFilters.length === 0 && <li>No filters applied (showing all)</li>}
+                </ul>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label font-bold text-xs">Shareable URL</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    readOnly 
+                    value={buildShareParams(filterShareMapEnabled)} 
+                    style={{ backgroundColor: '#f8fafc', fontSize: '0.8rem' }}
+                  />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(buildShareParams(filterShareMapEnabled));
+                      onAddToast('Filtered share link copied to clipboard!', 'success');
+                    }}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <a 
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `Check out J.K. Future Infra properties.` +
+                    (selectedCityFilters.length > 0 ? `\n📍 Cities: ${selectedCityFilters.join(', ')}` : '') +
+                    (selectedLocationFilters.length > 0 ? `\n📌 Locations: ${selectedLocationFilters.join(', ')}` : '') +
+                    (selectedCategoryFilters.length > 0 ? `\n🏠 Categories: ${selectedCategoryFilters.join(', ')}` : '') +
+                    (selectedFacingFilters.length > 0 ? `\n🧭 Facings: ${selectedFacingFilters.join(', ')}` : '') +
+                    (selectedPropertyTypeFilters.length > 0 ? `\n🏗️ Types: ${selectedPropertyTypeFilters.join(', ')}` : '') +
+                    (selectedAgentFilters.length > 0 ? `\n👤 Agents: ${selectedAgentFilters.map(id => agents.find(a => a.id === id)?.name || id).join(', ')}` : '') +
+                    `\n\nView list here: ${buildShareParams(filterShareMapEnabled)}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary btn-sm flex-1 text-center"
+                  style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  Share on WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       )}

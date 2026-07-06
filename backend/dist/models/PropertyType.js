@@ -55,7 +55,7 @@ __decorate([
     __metadata("design:type", Date)
 ], PropertyType.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.BeforeCreate,
+    sequelize_typescript_1.BeforeValidate,
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [PropertyType]),
     __metadata("design:returntype", Promise)

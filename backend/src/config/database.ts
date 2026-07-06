@@ -17,6 +17,10 @@ import { Amenity } from "../models/Amenity";
 import { Document } from "../models/Document";
 import { SiteVisit } from "../models/SiteVisit";
 import { MailConfig } from "../models/MailConfig";
+import { MarketingAgent } from "../models/MarketingAgent";
+import { Expense } from "../models/Expense";
+import { ExpenseCategory } from "../models/ExpenseCategory";
+import { AuditLog } from "../models/AuditLog";
 
 dotenv.config();
 
@@ -39,7 +43,11 @@ const models = [
     Amenity,
     Document,
     SiteVisit,
-    MailConfig
+    MailConfig,
+    MarketingAgent,
+    Expense,
+    ExpenseCategory,
+    AuditLog
 ];
 
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);

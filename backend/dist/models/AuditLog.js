@@ -15,33 +15,60 @@ let AuditLog = class AuditLog extends sequelize_typescript_1.Model {
 };
 exports.AuditLog = AuditLog;
 __decorate([
-    sequelize_typescript_1.Column,
-    __metadata("design:type", Number)
-], AuditLog.prototype, "userId", void 0);
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.UUID,
+        defaultValue: sequelize_typescript_1.DataType.UUIDV4,
+        primaryKey: true
+    }),
+    __metadata("design:type", String)
+], AuditLog.prototype, "id", void 0);
 __decorate([
-    sequelize_typescript_1.Column,
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: false
+    }),
+    __metadata("design:type", String)
+], AuditLog.prototype, "user", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: false
+    }),
+    __metadata("design:type", String)
+], AuditLog.prototype, "role", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: false
+    }),
     __metadata("design:type", String)
 ], AuditLog.prototype, "action", void 0);
 __decorate([
-    sequelize_typescript_1.Column,
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.TEXT,
+        allowNull: false
+    }),
     __metadata("design:type", String)
-], AuditLog.prototype, "tableName", void 0);
+], AuditLog.prototype, "details", void 0);
 __decorate([
-    sequelize_typescript_1.Column,
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true
+    }),
     __metadata("design:type", String)
-], AuditLog.prototype, "recordId", void 0);
+], AuditLog.prototype, "ip", void 0);
 __decorate([
-    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT),
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.ENUM("Success", "Warning", "Failed"),
+        allowNull: false,
+        defaultValue: "Success"
+    }),
     __metadata("design:type", String)
-], AuditLog.prototype, "oldValue", void 0);
+], AuditLog.prototype, "status", void 0);
 __decorate([
-    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT),
-    __metadata("design:type", String)
-], AuditLog.prototype, "newValue", void 0);
-__decorate([
-    (0, sequelize_typescript_1.Column)({ defaultValue: sequelize_typescript_1.DataType.NOW }),
+    sequelize_typescript_1.CreatedAt,
     __metadata("design:type", Date)
-], AuditLog.prototype, "timestamp", void 0);
+], AuditLog.prototype, "createdAt", void 0);
 exports.AuditLog = AuditLog = __decorate([
     (0, sequelize_typescript_1.Table)({ tableName: "audit_logs" })
 ], AuditLog);

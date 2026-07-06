@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BeforeCreate } from "sequelize-typescript";
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BeforeValidate } from "sequelize-typescript";
 import { City } from "./City";
 
 @Table({ tableName: "locations" })
@@ -32,7 +32,7 @@ export class LocationMaster extends Model {
     @UpdatedAt
     updatedAt!: Date;
 
-    @BeforeCreate
+    @BeforeValidate
     static async generateSequentialId(instance: LocationMaster) {
         if (!instance.id || instance.id.startsWith('l_') || instance.id.startsWith('loc_')) {
             const all = await LocationMaster.findAll();

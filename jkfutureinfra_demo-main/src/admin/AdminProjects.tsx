@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
-import { Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { 
+  Edit2, Trash2, CheckCircle2, XCircle, X, 
+  Building2, MapPin, Compass, Layers, Home, 
+  IndianRupee, Image, FileText, Sparkles, Upload, 
+  Maximize2
+} from 'lucide-react';
 import { addProject, updateProject, deleteProject, uploadImage, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -51,10 +56,39 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
 
   const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+
+    const currentUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+    const duplicates: string[] = [];
+    const validFiles: File[] = [];
+
+    for (const file of Array.from(e.target.files)) {
+      const dotIndex = file.name.lastIndexOf('.');
+      const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
+      
+      const isDuplicate = currentUrls.some(url => {
+        const decodedUrl = decodeURIComponent(url);
+        const urlFile = decodedUrl.split('/').pop() || '';
+        return urlFile.toLowerCase().includes(baseName.toLowerCase());
+      });
+
+      if (isDuplicate) {
+        duplicates.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (duplicates.length > 0) {
+      onAddToast(`Image(s) already uploaded: ${duplicates.join(', ')}`, 'error');
+      if (validFiles.length === 0) {
+        e.target.value = '';
+        return;
+      }
+    }
+
     setUploadingImages(true);
     try {
-      const urls = await uploadMultipleImages(e.target.files, 'MP');
-      const currentUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+      const urls = await uploadMultipleImages(validFiles, 'MP');
       const combinedUrls = [...currentUrls, ...urls].join(', ');
       setImageUrl(combinedUrls);
       onAddToast('Property images uploaded successfully!', 'success');
@@ -62,6 +96,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       onAddToast(err.message || 'Images upload failed', 'error');
     } finally {
       setUploadingImages(false);
+      e.target.value = '';
     }
   };
 
@@ -204,6 +239,50 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       return;
     }
 
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+      onAddToast('Latitude must be a valid number between -90 and 90', 'error');
+      return;
+    }
+    if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
+      onAddToast('Longitude must be a valid number between -180 and 180', 'error');
+      return;
+    }
+
+    const priceVal = Number(priceValue);
+    if (isNaN(priceVal) || priceVal < 0) {
+      onAddToast('Price Value must be a valid positive number', 'error');
+      return;
+    }
+
+    const floorsNum = Number(floors);
+    if (isNaN(floorsNum) || floorsNum < 0) {
+      onAddToast('Floors must be a valid positive number', 'error');
+      return;
+    }
+
+    const unitsNum = Number(unitsCount);
+    if (isNaN(unitsNum) || unitsNum < 0) {
+      onAddToast('Units Count must be a valid positive number', 'error');
+      return;
+    }
+
+    if (category === 'Sites') {
+      if (width && (isNaN(Number(width)) || Number(width) <= 0)) {
+        onAddToast('Width must be a positive number', 'error');
+        return;
+      }
+      if (length && (isNaN(Number(length)) || Number(length) <= 0)) {
+        onAddToast('Length must be a positive number', 'error');
+        return;
+      }
+    }
+    if (uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
+      onAddToast('UDS must be a positive number', 'error');
+      return;
+    }
+
     // Split inputs
     const imagesArray = imageUrl.split(',').map(url => url.trim()).filter(Boolean);
     const highlightsArray = highlightsText.split('\n').map(h => h.trim()).filter(Boolean);
@@ -324,7 +403,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       {/* Modal Form */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content premium-admin-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-content premium-admin-modal" style={{ maxWidth: '800px', width: '95%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header-premium">
               <div>
                 <h3 className="modal-title">
@@ -342,42 +421,53 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="modal-form-premium">
-              <div className="modal-body-premium">
+            <form onSubmit={handleSubmit} className="modal-form-premium" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
+              <div className="modal-body-premium" style={{ padding: '1.5rem 2rem', overflowY: 'auto', flexGrow: 1 }}>
+                
                 {/* Section 1: Basic Specifications */}
-                <div className="modal-section-title">Basic Specifications</div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Project Name *</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Enter project name..." 
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      required
-                    />
+                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem' }}>Basic Specifications</div>
+                
+                <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Project Name *</label>
+                    <div style={{ position: 'relative' }}>
+                      <Building2 size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="Enter project name..." 
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Status *</label>
-                    <select 
-                      className="form-control" 
-                      value={status}
-                      onChange={e => setStatus(e.target.value as ProjectStatus)}
-                    >
-                      <option value="Ongoing">Ongoing</option>
-                      <option value="Upcoming">Upcoming</option>
-                      <option value="Completed">Completed</option>
-                    </select>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Status *</label>
+                    <div style={{ position: 'relative' }}>
+                      <Compass size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 10 }} />
+                      <select 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        value={status}
+                        onChange={e => setStatus(e.target.value as ProjectStatus)}
+                      >
+                        <option value="Ongoing">Ongoing</option>
+                        <option value="Upcoming">Upcoming</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-3 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Main Category *</label>
+                <div className="grid grid-3 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Main Category *</label>
                     <select 
                       className="form-control" 
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
                       value={category}
                       onChange={e => {
                         const newCat = e.target.value as ProjectCategory;
@@ -392,11 +482,12 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     </select>
                   </div>
 
-                  {category === 'Sites' ? (
-                    <div className="form-group">
-                      <label className="form-label">Site Classification *</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Sub-category *</label>
+                    {category === 'Sites' ? (
                       <select 
                         className="form-control" 
+                        style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
                         value={subCategory}
                         onChange={e => setSubCategory(e.target.value)}
                         required
@@ -407,12 +498,10 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         <option value="VUDA Approved Sites">VUDA Approved Sites</option>
                         <option value="Ventures">Ventures</option>
                       </select>
-                    </div>
-                  ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
-                    <div className="form-group">
-                      <label className="form-label">Sub-category *</label>
+                    ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
                       <select 
                         className="form-control" 
+                        style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
                         value={subCategory}
                         onChange={e => setSubCategory(e.target.value)}
                         required
@@ -421,18 +510,16 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         <option value="Under Construction">Under Construction</option>
                         <option value="Ready to Move">Ready to Move</option>
                       </select>
-                    </div>
-                  ) : (
-                    <div className="form-group">
-                      <label className="form-label">Sub-category</label>
-                      <input className="form-control" disabled value="N/A" />
-                    </div>
-                  )}
+                    ) : (
+                      <input className="form-control" style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed', boxSizing: 'border-box' }} disabled value="N/A" />
+                    )}
+                  </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Classification *</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Classification *</label>
                     <select
                       className="form-control"
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
                       value={classification}
                       onChange={e => setClassification(e.target.value)}
                       required
@@ -446,82 +533,101 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                 </div>
 
                 {category === 'Sites' && (
-                  <>
-                    <div className="grid grid-2 gap-2">
-                      <div className="form-group">
-                        <label className="form-label">Site Width (ft) *</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="e.g. 30"
-                          value={width}
-                          onChange={e => {
-                            const newWidth = e.target.value;
-                            setWidth(newWidth);
-                            const w = parseFloat(newWidth);
-                            const l = parseFloat(length);
-                            if (!isNaN(w) && !isNaN(l)) {
-                              setUds(String(Math.round((w * l / 9) * 100) / 100));
-                            }
-                          }}
-                          required
-                        />
+                  <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem', marginTop: '0.5rem' }}>
+                    <legend style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 6px' }}>Plot Dimension Specs</legend>
+                    <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>Site Width (ft) *</label>
+                        <div style={{ position: 'relative' }}>
+                          <Maximize2 size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                          <input
+                            type="text"
+                            className="form-control"
+                            style={{ paddingLeft: '2.25rem', width: '100%', padding: '0.45rem 0.65rem 0.45rem 2.25rem', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                            placeholder="e.g. 30"
+                            value={width}
+                            onChange={e => {
+                              const newWidth = e.target.value;
+                              setWidth(newWidth);
+                              const w = parseFloat(newWidth);
+                              const l = parseFloat(length);
+                              if (!isNaN(w) && !isNaN(l)) {
+                                setUds(String(Math.round((w * l / 9) * 100) / 100));
+                              }
+                            }}
+                            required
+                          />
+                        </div>
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">Site Length (ft) *</label>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>Site Length (ft) *</label>
+                        <div style={{ position: 'relative' }}>
+                          <Maximize2 size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                          <input
+                            type="text"
+                            className="form-control"
+                            style={{ paddingLeft: '2.25rem', width: '100%', padding: '0.45rem 0.65rem 0.45rem 2.25rem', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                            placeholder="e.g. 40"
+                            value={length}
+                            onChange={e => {
+                              const newLength = e.target.value;
+                              setLength(newLength);
+                              const w = parseFloat(width);
+                              const l = parseFloat(newLength);
+                              if (!isNaN(w) && !isNaN(l)) {
+                                setUds(String(Math.round((w * l / 9) * 100) / 100));
+                              }
+                            }}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, marginTop: '0.75rem' }}>
+                      <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>Total Sq. Yards *</label>
+                      <div style={{ position: 'relative' }}>
+                        <Layers size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="e.g. 40"
-                          value={length}
-                          onChange={e => {
-                            const newLength = e.target.value;
-                            setLength(newLength);
-                            const w = parseFloat(width);
-                            const l = parseFloat(newLength);
-                            if (!isNaN(w) && !isNaN(l)) {
-                              setUds(String(Math.round((w * l / 9) * 100) / 100));
-                            }
-                          }}
+                          style={{ paddingLeft: '2.25rem', width: '100%', padding: '0.45rem 0.65rem 0.45rem 2.25rem', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                          placeholder="Calculated automatically, or enter manually"
+                          value={uds}
+                          onChange={e => setUds(e.target.value)}
                           required
                         />
                       </div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Total Sq. Yards *</label>
+                  </fieldset>
+                )}
+
+                {category === 'Flats' && (
+                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>UDS (Sq. Yds) *</label>
+                    <div style={{ position: 'relative' }}>
+                      <Layers size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="Calculated automatically, or enter manually"
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="e.g. 35"
                         value={uds}
                         onChange={e => setUds(e.target.value)}
                         required
                       />
                     </div>
-                  </>
-                )}
-
-                {category === 'Flats' && (
-                  <div className="form-group">
-                    <label className="form-label">UDS (Sq. Yds) *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. 35"
-                      value={uds}
-                      onChange={e => setUds(e.target.value)}
-                      required
-                    />
                   </div>
                 )}
 
                 {/* Section 2: Location & Address */}
-                <div className="modal-section-title">Location & Address</div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">City Location *</label>
+                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Location & Address</div>
+                
+                <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>City Location *</label>
                     <select 
                       className="form-control" 
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
                       value={city}
                       onChange={e => {
                         setCity(e.target.value);
@@ -536,10 +642,11 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Micro Location Area *</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Micro Location Area *</label>
                     <select 
                       className="form-control" 
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: city ? '#f8fafc' : '#e2e8f0', color: city ? 'inherit' : '#94a3b8', cursor: city ? 'pointer' : 'not-allowed', boxSizing: 'border-box' }}
                       value={microLocation}
                       onChange={e => setMicroLocation(e.target.value)}
                       required
@@ -555,13 +662,13 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                           <option key={l.id} value={l.name}>{l.name}</option>
                         ))}
                     </select>
-                    {!city && <div className="text-xxs text-muted mt-0.5">Select city first</div>}
+                    {!city && <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px' }}>Select city first</div>}
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Facing Directions * (Select multiple)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Facing Directions * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
                     {(facings && facings.length > 0 ? facings : [
                       { id: 'df1', name: 'East' },
                       { id: 'df2', name: 'West' },
@@ -572,7 +679,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     ]).map(f => {
                       const isChecked = selectedFacings.includes(f.name);
                       return (
-                        <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                        <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', userSelect: 'none' }}>
                           <input 
                             type="checkbox"
                             checked={isChecked}
@@ -592,71 +699,92 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Location Address *</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. Madhurawada, Visakhapatnam" 
-                    value={location}
-                    onChange={e => setLocation(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Latitude Offset</label>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Location Address *</label>
+                  <div style={{ position: 'relative' }}>
+                    <MapPin size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                     <input 
-                      type="number" 
-                      step="0.0001" 
+                      type="text" 
                       className="form-control" 
-                      value={lat}
-                      onChange={e => setLat(Number(e.target.value))}
+                      style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      placeholder="e.g. Madhurawada, Visakhapatnam" 
+                      value={location}
+                      onChange={e => setLocation(e.target.value)}
+                      required
                     />
                   </div>
+                </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Longitude Offset</label>
-                    <input 
-                      type="number" 
-                      step="0.0001" 
-                      className="form-control" 
-                      value={lng}
-                      onChange={e => setLng(Number(e.target.value))}
-                    />
+                <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Latitude Offset</label>
+                    <div style={{ position: 'relative' }}>
+                      <Compass size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="number" 
+                        step="0.0001" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        value={lat}
+                        onChange={e => setLat(Number(e.target.value))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Longitude Offset</label>
+                    <div style={{ position: 'relative' }}>
+                      <Compass size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="number" 
+                        step="0.0001" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        value={lng}
+                        onChange={e => setLng(Number(e.target.value))}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Section 3: Configurations & Pricing */}
-                <div className="modal-section-title">Configurations & Pricing</div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Total Floors</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      placeholder="e.g. 5" 
-                      value={floors}
-                      onChange={e => setFloors(Number(e.target.value))}
-                    />
+                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Configurations & Pricing</div>
+                
+                <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Total Floors</label>
+                    <div style={{ position: 'relative' }}>
+                      <Layers size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="e.g. 5" 
+                        value={floors}
+                        onChange={e => setFloors(Number(e.target.value))}
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Total Units Count</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      placeholder="e.g. 120" 
-                      value={unitsCount}
-                      onChange={e => setUnitsCount(Number(e.target.value))}
-                    />
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Total Units Count</label>
+                    <div style={{ position: 'relative' }}>
+                      <Home size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="e.g. 120" 
+                        value={unitsCount}
+                        onChange={e => setUnitsCount(Number(e.target.value))}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">BHK / Plot Configurations * (Check config to enable quantity)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>BHK / Plot Configurations * (Check config to enable quantity)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
                     {(propertyTypes && propertyTypes.length > 0 ? propertyTypes : [
                       { id: 'dpt1', name: '1 BHK' },
                       { id: 'dpt2', name: '2 BHK' },
@@ -669,7 +797,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
                         <div key={pt.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', flex: 1, userSelect: 'none' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', flex: 1, userSelect: 'none' }}>
                             <input 
                               type="checkbox"
                               checked={isChecked}
@@ -694,7 +822,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                             type="number"
                             placeholder="Qty"
                             className="form-control"
-                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
                             value={countValue}
                             disabled={!isChecked}
                             onChange={(e) => {
@@ -709,57 +837,70 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Price Range Text *</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. ₹55 L - ₹90 L" 
-                      value={priceRange}
-                      onChange={e => setPriceRange(e.target.value)}
-                      required
-                    />
+                <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Price Range Text *</label>
+                    <div style={{ position: 'relative' }}>
+                      <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="e.g. ₹55 L - ₹90 L" 
+                        value={priceRange}
+                        onChange={e => setPriceRange(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Sort Value (Price Number) *</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      placeholder="e.g. 5500000" 
-                      value={priceValue}
-                      onChange={e => setPriceValue(Number(e.target.value))}
-                      required
-                    />
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Sort Value (Price Number) *</label>
+                    <div style={{ position: 'relative' }}>
+                      <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="e.g. 5500000" 
+                        value={priceValue}
+                        onChange={e => setPriceValue(Number(e.target.value))}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Section 4: Media & Details */}
-                <div className="modal-section-title">Media & Details</div>
-                <div className="form-group">
-                  <label className="form-label">Blueprint/Specifications Image</label>
+                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Media & Details</div>
+                
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Blueprint/Specifications Image</label>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="https://... or upload local file" 
-                      value={specImage}
-                      onChange={e => setSpecImage(e.target.value)}
-                      style={{ marginBottom: 0, flex: 1 }}
-                    />
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      {uploadingSpec ? 'Uploading...' : 'Upload File'}
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Image size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="https://... or upload local file" 
+                        value={specImage}
+                        onChange={e => setSpecImage(e.target.value)}
+                      />
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
+                      <Upload size={14} />
+                      {uploadingSpec ? 'Uploading...' : 'Choose File'}
                       <input type="file" accept="image/*" onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpec} />
                     </label>
                   </div>
                   {/* Blueprint preview */}
                   {specImage && (
-                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', position: 'relative' }}>
+                    <div style={{ marginTop: '0.75rem', display: 'inline-flex', position: 'relative' }}>
                       <img
                         src={specImage}
                         alt="Blueprint preview"
-                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1.5px solid #e2e8f0' }}
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                       <button
@@ -778,31 +919,35 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Property Images (Comma-separated URLs)</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <textarea 
-                      className="form-control" 
-                      rows={2} 
-                      placeholder="URL1, URL2, URL3... or upload files below" 
-                      value={imageUrl}
-                      onChange={e => setImageUrl(e.target.value)}
-                      style={{ marginBottom: 0 }}
-                    />
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      {uploadingImages ? 'Uploading Images...' : 'Upload Property Images'}
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Property Images (Comma-separated URLs)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Image size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
+                      <textarea 
+                        className="form-control" 
+                        rows={2} 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="URL1, URL2, URL3... or upload files below" 
+                        value={imageUrl}
+                        onChange={e => setImageUrl(e.target.value)}
+                      />
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
+                      <Upload size={14} />
+                      {uploadingImages ? 'Uploading Images...' : 'Choose Photos'}
                       <input type="file" accept="image/*" multiple onChange={handleImagesUpload} style={{ display: 'none' }} disabled={uploadingImages} />
                     </label>
                   </div>
                   {/* Property images preview grid */}
                   {imageUrl && imageUrl.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {imageUrl.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
                         <div key={idx} style={{ position: 'relative', display: 'inline-flex' }}>
                           <img
                             src={url}
                             alt={`Property image ${idx + 1}`}
-                            style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1.5px solid #e2e8f0' }}
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                           />
                           <button
@@ -826,32 +971,40 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Detailed Overview *</label>
-                  <textarea 
-                    className="form-control" 
-                    rows={3} 
-                    placeholder="Describe the property, builders specifications, and environment..." 
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    required
-                  />
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Detailed Overview *</label>
+                  <div style={{ position: 'relative' }}>
+                    <FileText size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
+                    <textarea 
+                      className="form-control" 
+                      rows={3} 
+                      style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      placeholder="Describe the property, builders specifications, and environment..." 
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Highlights (One per line)</label>
-                  <textarea 
-                    className="form-control" 
-                    rows={3} 
-                    placeholder="Highlight 1&#10;Highlight 2..." 
-                    value={highlightsText}
-                    onChange={e => setHighlightsText(e.target.value)}
-                  />
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Highlights (One per line)</label>
+                  <div style={{ position: 'relative' }}>
+                    <Sparkles size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
+                    <textarea 
+                      className="form-control" 
+                      rows={3} 
+                      style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      placeholder="Highlight 1&#10;Highlight 2..." 
+                      value={highlightsText}
+                      onChange={e => setHighlightsText(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Amenities * (Select multiple)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Amenities * (Select multiple)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
                     {(amenities && amenities.length > 0 ? amenities : [
                       { id: 'da1', name: 'Clubhouse' },
                       { id: 'da2', name: 'Gymnasium' },
@@ -860,7 +1013,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     ]).map(a => {
                       const isChecked = selectedAmenities.includes(a.name);
                       return (
-                        <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none' }}>
+                        <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', userSelect: 'none' }}>
                           <input 
                             type="checkbox"
                             checked={isChecked}
@@ -880,20 +1033,21 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </div>
                 </div>
 
-                <div className="checkbox-group-premium">
+                <div className="checkbox-group-premium" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', marginTop: '1rem' }}>
                   <input 
                     type="checkbox" 
                     id="chkFeatured" 
                     checked={featured} 
                     onChange={e => setFeatured(e.target.checked)} 
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                   />
-                  <label htmlFor="chkFeatured">Show as Featured Project on Hero Banner</label>
+                  <label htmlFor="chkFeatured" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>Show as Featured Project on Hero Banner</label>
                 </div>
               </div>
 
-              <div className="modal-footer-premium">
-                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm">Save Property</button>
+              <div className="modal-footer-premium" style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border-color)', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, border: '1.5px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#374151', cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700, border: 'none', borderRadius: '6px', background: 'var(--secondary)', color: 'var(--primary)', cursor: 'pointer' }}>Save Property</button>
               </div>
             </form>
           </div>

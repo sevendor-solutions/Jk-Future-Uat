@@ -13,8 +13,8 @@ const JobApplication_1 = require("../models/JobApplication");
 const PropertyType_1 = require("../models/PropertyType");
 const Facing_1 = require("../models/Facing");
 const Amenity_1 = require("../models/Amenity");
-const SiteVisit_1 = require("../models/SiteVisit");
 const MailConfig_1 = require("../models/MailConfig");
+const MarketingAgent_1 = require("../models/MarketingAgent");
 const INITIAL_CITIES = [
     { id: 'c1', name: 'Visakhapatnam' },
     { id: 'c2', name: 'Vijayawada' },
@@ -1243,81 +1243,102 @@ async function seedDatabase() {
             await Amenity_1.Amenity.bulkCreate(INITIAL_AMENITIES);
         }
         // 7. Seed MailConfig
-        const mailConfigCount = await MailConfig_1.MailConfig.count();
-        if (mailConfigCount === 0) {
+        let mailConfig = await MailConfig_1.MailConfig.findByPk("default");
+        if (!mailConfig) {
             console.log("🌱 Seeding MailConfig...");
             await MailConfig_1.MailConfig.create({
                 id: "default",
-                deliveryMode: "simulation",
+                deliveryMode: "smtp",
                 triggerWindowDays: 5,
                 sendBeforeDays: 1,
-                smtpHost: "smtp.mailtrap.io",
-                smtpPort: 2525,
-                smtpUser: "",
-                smtpPass: "",
-                senderEmail: "noreply@jkfutureinfra.com",
+                smtpHost: "smtpout.secureserver.net",
+                smtpPort: 587,
+                smtpUser: "info@sevendorsolutions.com",
+                smtpPass: "Chinna@123",
+                senderEmail: "info@sevendorsolutions.com",
+                summaryEmail: "jkfutureinfra@gmail.com",
                 emailSubject: "Reminder: Scheduled Site Visit for {projectName}",
-                emailTemplate: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} will guide you.\n\nWarm regards,\nJK Future Infra Team"
+                emailTemplate: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} (Phone: {assignedAgentPhone}) will guide you.\n\nWarm regards,\nJK Future Infra Team",
+                smsProvider: "",
+                smsApiKey: "",
+                smsSenderId: "",
+                smsEnabled: false,
+                whatsappToken: "",
+                whatsappPhoneId: "",
+                whatsappEnabled: false,
+                dbType: process.env.DB_TYPE || "postgres",
+                dbHost: process.env.PG_HOST || "localhost",
+                dbPort: parseInt(process.env.PG_PORT || "5432"),
+                dbUser: process.env.PG_USER || "postgres",
+                dbPassword: process.env.PG_PASSWORD || "Admin@123",
+                dbName: process.env.PG_DB || "JKFutureDB",
+                jwtSecret: process.env.JWT_SECRET || "jk_future_infra_secret_jwt_key_2026"
             });
         }
-        // 8. Seed Site Visits
-        const siteVisitsCount = await SiteVisit_1.SiteVisit.count();
-        if (siteVisitsCount === 0) {
-            console.log("🌱 Seeding Site Visits...");
-            const formatOffsetDate = (offsetDays) => {
-                const d = new Date();
-                d.setDate(d.getDate() + offsetDays);
-                return d.toISOString().split('T')[0]; // YYYY-MM-DD
-            };
-            await SiteVisit_1.SiteVisit.bulkCreate([
+        else {
+            console.log("🌱 Updating MailConfig database credentials to SecureServer SMTP...");
+            await mailConfig.update({
+                smtpHost: "smtpout.secureserver.net",
+                smtpPort: 587,
+                smtpUser: "info@sevendorsolutions.com",
+                smtpPass: "Chinna@123",
+                senderEmail: "info@sevendorsolutions.com",
+                deliveryMode: "smtp"
+            });
+        }
+        // 8. Seed Site Visits (Removed static site visit data as requested)
+        // Seed Marketing Agents
+        const agentsCount = await MarketingAgent_1.MarketingAgent.count();
+        if (agentsCount === 0) {
+            console.log("🌱 Seeding Marketing Agents...");
+            await MarketingAgent_1.MarketingAgent.bulkCreate([
                 {
-                    id: "sv1",
-                    customerName: "K. Rajesh Kumar",
-                    customerEmail: "rajesh.k@example.com",
-                    customerPhone: "9876543210",
-                    projectAssociation: "p1",
-                    projectName: "JK Grand Horizon",
-                    visitDate: formatOffsetDate(1), // Tomorrow (Should trigger reminder!)
-                    visitTime: "11:00",
-                    emailStatus: "Pending",
-                    assignedAgent: "M. Srinivas"
+                    id: "ma1",
+                    name: "G. Anand",
+                    email: "anand.g@jkfutureinfra.com",
+                    phone: "9988776655",
+                    designation: "Property Advisor",
+                    status: "active"
                 },
                 {
-                    id: "sv2",
-                    customerName: "S. Anjali Devi",
-                    customerEmail: "anjali.s@example.com",
-                    customerPhone: "8765432109",
-                    projectAssociation: "p2",
-                    projectName: "JK Emerald Heights",
-                    visitDate: formatOffsetDate(3), // In 3 days (Pending within trigger window)
-                    visitTime: "15:30",
-                    emailStatus: "Pending",
-                    assignedAgent: "V. Swetha"
+                    id: "ma2",
+                    name: "M. Srinivas",
+                    email: "srinivas.m@jkfutureinfra.com",
+                    phone: "8877665544",
+                    designation: "Senior Property Advisor",
+                    status: "active"
                 },
                 {
-                    id: "sv3",
-                    customerName: "T. Vikram Aditya",
-                    customerEmail: "vikram.aditya@example.com",
-                    customerPhone: "7654321098",
-                    projectAssociation: "p3",
-                    projectName: "JK Royal Enclave",
-                    visitDate: formatOffsetDate(-1), // Yesterday (Should mark as Skipped if checked)
-                    visitTime: "10:00",
-                    emailStatus: "Pending",
-                    assignedAgent: "G. Anand"
+                    id: "ma3",
+                    name: "V. Swetha",
+                    email: "swetha.v@jkfutureinfra.com",
+                    phone: "7766554433",
+                    designation: "Customer Relationship Manager",
+                    status: "active"
                 },
                 {
-                    id: "sv4",
-                    customerName: "P. Lakshmi Prasanna",
-                    customerEmail: "lakshmi.p@example.com",
-                    customerPhone: "6543210987",
-                    projectAssociation: "p7",
-                    projectName: "JK Industrial Gateway",
-                    visitDate: formatOffsetDate(8), // In 8 days (Outside trigger window of 5 days)
-                    visitTime: "14:00",
-                    emailStatus: "Pending",
-                    assignedAgent: "D. Prasad"
+                    id: "ma4",
+                    name: "D. Prasad",
+                    email: "prasad.d@jkfutureinfra.com",
+                    phone: "6655443322",
+                    designation: "Sales Executive",
+                    status: "active"
                 }
+            ]);
+        }
+        // 9. Seed Expense Categories
+        const { ExpenseCategory } = require("../models/ExpenseCategory");
+        const expenseCategoryCount = await ExpenseCategory.count();
+        if (expenseCategoryCount === 0) {
+            console.log("🌱 Seeding Expense Categories...");
+            await ExpenseCategory.bulkCreate([
+                { id: "ec1", name: "Steel" },
+                { id: "ec2", name: "Cement" },
+                { id: "ec3", name: "Sand & Bricks" },
+                { id: "ec4", name: "Labor Charges" },
+                { id: "ec5", name: "Transport & Logistics" },
+                { id: "ec6", name: "Marketing & Ads" },
+                { id: "ec7", name: "Miscellaneous Office" }
             ]);
         }
         console.log("✅ Database Seeding completed successfully!");

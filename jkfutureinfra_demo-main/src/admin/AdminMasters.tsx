@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
-import { Trash2, MapPin, Building, Compass, Home, Sparkles } from 'lucide-react';
-import { addCity, deleteCity, addLocation, deleteLocation, addPropertyType, deletePropertyType, addFacing, deleteFacing, addAmenity, deleteAmenity } from '../utils/db';
+import type { City, LocationMaster, PropertyType, Facing, Amenity, ExpenseCategory } from '../types';
+import { Trash2, MapPin, Building, Compass, Home, Sparkles, Receipt } from 'lucide-react';
+import { addCity, deleteCity, addLocation, deleteLocation, addPropertyType, deletePropertyType, addFacing, deleteFacing, addAmenity, deleteAmenity, addExpenseCategory, deleteExpenseCategory } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -11,6 +11,7 @@ interface AdminMastersProps {
   propertyTypes: PropertyType[];
   facings: Facing[];
   amenities: Amenity[];
+  expenseCategories?: ExpenseCategory[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -22,12 +23,13 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
   propertyTypes = [],
   facings = [],
   amenities = [],
+  expenseCategories = [],
   onRefresh,
   onAddToast,
   onConfirm
 }) => {
-  // Tabs: 'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities'
-  const [activeSubTab, setActiveSubTab] = useState<'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities'>('cities');
+  // Tabs: 'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities' | 'expenseCategories'
+  const [activeSubTab, setActiveSubTab] = useState<'cities' | 'locations' | 'propertyTypes' | 'facings' | 'amenities' | 'expenseCategories'>('cities');
 
   // Modal forms states
   const [cityModalOpen, setCityModalOpen] = useState(false);
@@ -353,6 +355,67 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
     }
   };
 
+  // Handlers for Expense Categories
+  const [expenseCategoryModalOpen, setExpenseCategoryModalOpen] = useState(false);
+  const [expenseCategoryName, setExpenseCategoryName] = useState('');
+
+  const handleOpenAddExpenseCategory = () => {
+    setExpenseCategoryName('');
+    setExpenseCategoryModalOpen(true);
+  };
+
+  const handleExpenseCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseCategoryName.trim()) {
+      onAddToast('Please fill out the Category Name', 'error');
+      return;
+    }
+
+    const cleanName = expenseCategoryName.trim();
+    const duplicate = expenseCategories.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
+    if (duplicate) {
+      onAddToast(`Expense Category "${cleanName}" already exists in the master database.`, 'error');
+      return;
+    }
+
+    let nextNum = 1;
+    expenseCategories.forEach(c => {
+      const match = c.id.match(/^ec(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num < 100000 && num >= nextNum) {
+          nextNum = num + 1;
+        }
+      }
+    });
+
+    const newCat: ExpenseCategory = {
+      id: `ec${nextNum}`,
+      name: cleanName
+    };
+
+    try {
+      await addExpenseCategory(newCat);
+      onAddToast(`Expense Category "${cleanName}" added successfully to masters.`, 'success');
+      setExpenseCategoryModalOpen(false);
+      onRefresh();
+    } catch (error) {
+      onAddToast('Failed to add expense category.', 'error');
+    }
+  };
+
+  const handleExpenseCategoryDelete = async (id: string, name: string) => {
+    if (await onConfirm(`Are you sure you want to delete "${name}" from Expense Categories master?`)) {
+      try {
+        await deleteExpenseCategory(id);
+        onAddToast(`Expense Category "${name}" removed.`, 'success');
+        onRefresh();
+      } catch (error) {
+        onAddToast('Failed to delete expense category.', 'error');
+      }
+    }
+  };
+
   // Column definitions for the ALV Grids
   const cityColumns: ALVColumn[] = [
     { key: 'id', label: 'City ID', width: '100px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
@@ -484,6 +547,28 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
     }
   ];
 
+  const expenseCategoryColumns: ALVColumn[] = [
+    { key: 'id', label: 'Category ID', width: '120px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'Category Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: '__actions',
+      label: 'Actions',
+      sortable: false,
+      width: '100px',
+      align: 'center',
+      render: (_v, row) => (
+        <button
+          onClick={() => handleExpenseCategoryDelete(String(row.id), String(row.name))}
+          className="alv-toolbar-btn"
+          style={{ color: '#dc2626', borderColor: '#dc2626' }}
+          title="Delete Category"
+        >
+          <Trash2 size={13} />
+        </button>
+      )
+    }
+  ];
+
   return (
     <div className="admin-masters-view">
       <div className="flex justify-between align-center mb-3">
@@ -499,14 +584,14 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
             onClick={() => setActiveSubTab('cities')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
           >
-            <Building size={14} /> Cities List ({cities.length})
+            <Building size={14} /> Cities ({cities.length})
           </button>
           <button 
             className={`toggle-btn ${activeSubTab === 'locations' ? 'active' : ''}`}
             onClick={() => setActiveSubTab('locations')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
           >
-            <MapPin size={14} /> Locations List ({locations.length})
+            <MapPin size={14} /> Locations ({locations.length})
           </button>
           <button 
             className={`toggle-btn ${activeSubTab === 'propertyTypes' ? 'active' : ''}`}
@@ -528,6 +613,13 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
           >
             <Sparkles size={14} /> Amenities ({amenities.length})
+          </button>
+          <button 
+            className={`toggle-btn ${activeSubTab === 'expenseCategories' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('expenseCategories')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+          >
+            <Receipt size={14} /> Expense Categories ({expenseCategories.length})
           </button>
         </div>
       </div>
@@ -604,6 +696,21 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
           addLabel="Add Amenity"
           onRefresh={onRefresh}
           searchPlaceholder="Search amenities..."
+        />
+      )}
+
+      {/* EXPENSE CATEGORIES TAB */}
+      {activeSubTab === 'expenseCategories' && (
+        <ALVGrid
+          title="Expense Categories Master"
+          subtitle={`${expenseCategories.length} categories registered`}
+          columns={expenseCategoryColumns}
+          data={expenseCategories as unknown as Record<string, unknown>[]}
+          rowKey="id"
+          onAdd={handleOpenAddExpenseCategory}
+          addLabel="Add Category"
+          onRefresh={onRefresh}
+          searchPlaceholder="Search categories..."
         />
       )}
 
@@ -750,6 +857,33 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
               <div className="flex gap-2 justify-end mt-2">
                 <button type="button" onClick={() => setAmenityModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-secondary btn-sm">Create Amenity</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Expense Category Modal */}
+      {expenseCategoryModalOpen && (
+        <div className="modal-overlay" onClick={() => setExpenseCategoryModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Register Expense Category</h3>
+            <form onSubmit={handleExpenseCategorySubmit} className="p-3">
+              <div className="form-group">
+                <label className="form-label">Category Name *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. Steel" 
+                  value={expenseCategoryName}
+                  onChange={e => setExpenseCategoryName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-2">
+                <button type="button" onClick={() => setExpenseCategoryModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-secondary btn-sm">Create Category</button>
               </div>
             </form>
           </div>

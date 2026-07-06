@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Document } from "../models/Document";
 import { authenticateToken } from "../middleware/auth";
+import { logAuditAction } from "../utils/auditLogger";
 
 const router = Router();
 
@@ -44,6 +45,7 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
         const newDoc = await Document.create(req.body);
+        await logAuditAction(req, "Document Uploaded", `Uploaded document: "${newDoc.title}" (Category: ${newDoc.category})`, "Success");
         return res.status(201).json({ success: true, data: newDoc });
     } catch (error) {
         next(error);
@@ -58,6 +60,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Document not found" });
         }
         await doc.update(req.body);
+        await logAuditAction(req, "Document Updated", `Updated document: "${doc.title}" (Category: ${doc.category})`, "Success");
         return res.json({ success: true, data: doc });
     } catch (error) {
         next(error);
@@ -71,7 +74,10 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!doc) {
             return res.status(404).json({ success: false, message: "Document not found" });
         }
+        const title = doc.title;
+        const category = doc.category;
         await doc.destroy();
+        await logAuditAction(req, "Document Deleted", `Deleted document: "${title}" (Category: ${category})`, "Success");
         return res.json({ success: true, message: "Document deleted successfully" });
     } catch (error) {
         next(error);

@@ -68,7 +68,7 @@ __decorate([
     __metadata("design:type", Date)
 ], LocationMaster.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.BeforeCreate,
+    sequelize_typescript_1.BeforeValidate,
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [LocationMaster]),
     __metadata("design:returntype", Promise)

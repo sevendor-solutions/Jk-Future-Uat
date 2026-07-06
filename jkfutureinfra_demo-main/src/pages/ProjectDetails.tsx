@@ -10,13 +10,17 @@ interface ProjectDetailsProps {
   projects: Project[];
   onBack: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  isMarketing?: boolean;
+  showMap?: boolean;
 }
 
 export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   projectId,
   projects,
   onBack,
-  onAddToast
+  onAddToast,
+  isMarketing = false,
+  showMap = false
 }) => {
   const project = projects.find(p => p.id === projectId);
   
@@ -575,27 +579,29 @@ Email: jkfutureinfra@gmail.com
             </div>
           )}
 
-          {/* Map Location */}
-          <div className="detail-card admin-card mb-3">
-            <h3 className="border-bottom-title mb-2">Google Map Location</h3>
-            <div className="detail-map-box" style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-              {/* Embed Google Maps dynamically using coordinates or search address */}
-              <iframe 
-                src={`https://maps.google.com/maps?q=${
-                  project.mapCoordinates && project.mapCoordinates.lat && project.mapCoordinates.lng
-                    ? `${project.mapCoordinates.lat},${project.mapCoordinates.lng}`
-                    : encodeURIComponent(project.name + ', ' + project.location)
-                }&z=15&output=embed`} 
-                width="100%" 
-                height="100%" 
-                style={{ border: 0 }} 
-                allowFullScreen={false} 
-                loading="lazy" 
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Google Map Locator"
-              />
+          {/* Map Location — hidden for marketing projects unless showMap is enabled */}
+          {(!isMarketing || showMap) && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Google Map Location</h3>
+              <div className="detail-map-box" style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                {/* Embed Google Maps dynamically using coordinates or search address */}
+                <iframe 
+                  src={`https://maps.google.com/maps?q=${
+                    project.mapCoordinates && project.mapCoordinates.lat && project.mapCoordinates.lng
+                      ? `${project.mapCoordinates.lat},${project.mapCoordinates.lng}`
+                      : encodeURIComponent(project.name + ', ' + project.location)
+                  }&z=15&output=embed`} 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen={false} 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Google Map Locator"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Sidebar Enquiry Panel (Column 3) */}

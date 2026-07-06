@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { SiteVisit, Project, MailConfig } from '../types';
+import type { SiteVisit, Project, MailConfig, MarketingAgent } from '../types';
 import { 
   getSiteVisits, 
   addSiteVisit, 
@@ -7,7 +7,8 @@ import {
   deleteSiteVisit, 
   processSiteVisitReminders, 
   sendSiteVisitEmailNow,
-  getMailConfig
+  getMailConfig,
+  getMarketingAgents
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -17,7 +18,6 @@ import {
   Calendar, 
   Clock, 
   User, 
-  Send, 
   Eye, 
   Trash2, 
   Edit, 
@@ -42,6 +42,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
   onConfirm
 }) => {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
+  const [agents, setAgents] = useState<MarketingAgent[]>([]);
   const [loading, setLoading] = useState(false);
   const [mailConfig, setMailConfig] = useState<MailConfig | null>(null);
 
@@ -75,12 +76,14 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [visitList, config] = await Promise.all([
+      const [visitList, config, agentList] = await Promise.all([
         getSiteVisits(),
-        getMailConfig()
+        getMailConfig(),
+        getMarketingAgents()
       ]);
       setVisits(visitList);
       setMailConfig(config);
+      setAgents(agentList);
     } catch (err: any) {
       console.error("Failed to load site visits:", err);
       onAddToast("Failed to load site visits and mail configuration.", "error");
@@ -240,12 +243,25 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
     const matchedProj = allProperties.find(p => p.id === visit.projectAssociation);
     const location = matchedProj ? matchedProj.location : "At the project site";
 
+    let assignedAgentStr = visit.assignedAgent || "Our Property Relations Executive";
+    let assignedAgentPhoneStr = "-";
+    if (visit.assignedAgent) {
+      const matchedAgent = agents.find(a => a.name === visit.assignedAgent);
+      if (matchedAgent) {
+        assignedAgentStr = matchedAgent.name;
+        if (matchedAgent.phone) {
+          assignedAgentPhoneStr = matchedAgent.phone;
+        }
+      }
+    }
+
     const vars = {
       customerName: visit.customerName,
       projectName: visit.projectName,
       visitDate: visit.visitDate,
       visitTime: visit.visitTime,
-      assignedAgent: visit.assignedAgent || "Our Property Relations Executive",
+      assignedAgent: assignedAgentStr,
+      assignedAgentPhone: assignedAgentPhoneStr,
       location: location
     };
 
@@ -381,14 +397,6 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
               style={{ color: '#0854a0', borderColor: '#0854a0' }}
             >
               <Eye size={13} />
-            </button>
-            <button 
-              onClick={() => handleSendNow(r.id, r.customerName)} 
-              className="alv-toolbar-btn" 
-              title="Send email reminder immediately"
-              style={{ color: '#10b981', borderColor: '#10b981' }}
-            >
-              <Send size={13} />
             </button>
             <button 
               onClick={() => handleOpenEditModal(r)} 
@@ -608,8 +616,14 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
                     className="form-control-premium"
                     value={formAgent}
                     onChange={e => setFormAgent(e.target.value)}
-                    placeholder="Enter agent name"
+                    placeholder="Enter or select agent name"
+                    list="agent-suggestions"
                   />
+                  <datalist id="agent-suggestions">
+                    {agents.map(a => (
+                      <option key={a.id} value={a.name} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
@@ -664,8 +678,13 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
               </div>
 
               {/* Body block */}
-              <div style={{ padding: '1.5rem', minHeight: '180px', backgroundColor: 'white', fontSize: '0.9rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                {previewContent.body}
+              <div style={{ padding: '1.5rem', minHeight: '180px', backgroundColor: 'white', fontSize: '0.9rem', color: '#1e293b', lineHeight: '1.6' }}>
+                <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <img src="/src/assets/logo.png" alt="JK Future Infra Logo" style={{ height: '40px' }} />
+                </div>
+                <div style={{ whiteSpace: 'pre-wrap' }}>
+                  {previewContent.body}
+                </div>
               </div>
             </div>
 

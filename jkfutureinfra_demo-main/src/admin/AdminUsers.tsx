@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { User } from '../types';
+import type { User, MarketingAgent } from '../types';
 import { Trash2, Edit2, Shield, UserCheck, Key } from 'lucide-react';
 import { addUser, deleteUser, updateUser } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
@@ -8,6 +8,7 @@ import type { ALVColumn } from './ALVGrid';
 interface AdminUsersProps {
   users: User[];
   currentUser: User | null;
+  agents?: MarketingAgent[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -16,6 +17,7 @@ interface AdminUsersProps {
 export const AdminUsers: React.FC<AdminUsersProps> = ({
   users,
   currentUser,
+  agents = [],
   onRefresh,
   onAddToast,
   onConfirm
@@ -26,10 +28,11 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
   // Form fields
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState<'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture'>('Moderator');
+  const [role, setRole] = useState<'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture' | 'MarketingAgent'>('Moderator');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [allowedScreens, setAllowedScreens] = useState<string[]>([]);
+  const [agentId, setAgentId] = useState('');
 
   // Filter users based on logged-in user role
   const isSuperAdmin = currentUser?.role === 'Admin';
@@ -39,13 +42,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
   const getRoleDefaultScreens = (userRole: string): string[] => {
     if (userRole === 'Admin') {
-      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'documents'];
+      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'documents', 'marketing_agents'];
     } else if (userRole === 'ProjectOwner') {
       return ['dashboard', 'projects', 'project_gallery', 'blogs', 'project_enquiries', 'careers'];
     } else if (userRole === 'MarketingOwner') {
       return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'careers'];
     } else if (userRole === 'Architecture') {
       return ['dashboard', 'documents', 'project_gallery'];
+    } else if (userRole === 'MarketingAgent') {
+      return ['marketing_enquiries', 'marketing_agents'];
     } else {
       // Moderator
       return ['dashboard', 'project_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers'];
@@ -60,6 +65,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     setEmail('');
     setPassword('');
     setAllowedScreens(getRoleDefaultScreens('Moderator'));
+    setAgentId('');
     setModalOpen(true);
   };
 
@@ -71,10 +77,11 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     setEmail(user.email);
     setPassword(user.password || '');
     setAllowedScreens(user.allowedScreens || getRoleDefaultScreens(user.role));
+    setAgentId(user.agentId || '');
     setModalOpen(true);
   };
 
-  const handleRoleChange = (newRole: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture') => {
+  const handleRoleChange = (newRole: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture' | 'MarketingAgent') => {
     setRole(newRole);
     setAllowedScreens(getRoleDefaultScreens(newRole));
   };
@@ -106,6 +113,12 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      onAddToast('Please enter a valid email address', 'error');
+      return;
+    }
+
     const cleanUsername = username.trim().toLowerCase();
 
     // Check duplicate username (except when editing self)
@@ -124,12 +137,14 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
       role: editingUser ? editingUser.role : role, // preserve role on edit if not changed (handled in select)
       email: email.trim(),
       password: password.trim() || cleanUsername + '123',
-      allowedScreens: isSuperAdmin ? allowedScreens : (editingUser?.allowedScreens || getRoleDefaultScreens(editingUser?.role || 'Moderator'))
+      allowedScreens: isSuperAdmin ? allowedScreens : (editingUser?.allowedScreens || getRoleDefaultScreens(editingUser?.role || 'Moderator')),
+      agentId: role === 'MarketingAgent' ? agentId : undefined
     };
 
     // If super admin editing someone else's role
     if (isSuperAdmin && editingUser) {
       userData.role = role;
+      userData.agentId = role === 'MarketingAgent' ? agentId : undefined;
     }
 
     try {
@@ -160,7 +175,8 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     marketing_enquiries: 'Mktg Leads',
     careers: 'Careers',
     users: 'Staff',
-    masters: 'Masters'
+    masters: 'Masters',
+    marketing_agents: 'Mktg Agents'
   };
 
   const columns: ALVColumn[] = [
@@ -307,9 +323,27 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                     <option value="MarketingOwner">Marketing Owner (Manage Showcase)</option>
                     <option value="Architecture">Architecture (Manage Documents & Plans)</option>
                     <option value="Moderator">Moderator (General Editor)</option>
+                    <option value="MarketingAgent">Marketing Agent (Assigned Properties & Leads)</option>
                   </select>
                 </div>
               </div>
+
+              {role === 'MarketingAgent' && (
+                <div className="form-group">
+                  <label className="form-label">Associated Marketing Agent *</label>
+                  <select
+                    className="form-control"
+                    value={agentId}
+                    onChange={e => setAgentId(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Select Marketing Agent --</option>
+                    {agents.map(a => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-2 gap-2">
                 <div className="form-group">
@@ -368,7 +402,8 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'marketing_enquiries', label: 'Marketing Leads' },
                       { id: 'careers', label: 'Job Applications' },
                       { id: 'users', label: 'Staff Logins' },
-                      { id: 'masters', label: 'Masters Config' }
+                      { id: 'masters', label: 'Masters Config' },
+                      { id: 'marketing_agents', label: 'Marketing Agents' }
                     ].map(screen => (
                       <label 
                         key={screen.id} 

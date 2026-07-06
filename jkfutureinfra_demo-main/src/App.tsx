@@ -62,6 +62,27 @@ function App() {
     initDB();
     refreshData();
 
+    // Check query params for shared project link or filtered marketing link
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('project');
+    const pageParam = urlParams.get('page');
+    const showMapParam = urlParams.get('showMap') === 'true';
+    const isMarketingParam = urlParams.get('isMarketing') === 'true';
+    if (projectId) {
+      handleNavigate('project-details', null, null, { id: projectId, showMap: showMapParam, isMarketing: isMarketingParam });
+    } else if (pageParam === 'marketing') {
+      const cat = (urlParams.get('category') || 'Flats') as ProjectCategory;
+      const siteCat = urlParams.get('siteCategory') || null;
+      const initialFilters = {
+        city: urlParams.get('city'),
+        location: urlParams.get('location'),
+        facing: urlParams.get('facing'),
+        propertyType: urlParams.get('propertyType'),
+        agent: urlParams.get('agent'),
+      };
+      handleNavigate('marketing', cat, siteCat, { initialFilters });
+    }
+
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash === '#/admin' || hash === '#admin') {
@@ -297,6 +318,8 @@ function App() {
           <ProjectDetails 
             projectId={activeParams?.id}
             projects={[...projects, ...marketing]}
+            isMarketing={activeParams?.isMarketing === true || marketing.some(m => m.id === activeParams?.id)}
+            showMap={activeParams?.showMap === true}
             onBack={() => {
               const isMarketing = marketing.some(m => m.id === activeParams?.id);
               if (isMarketing) {
@@ -318,6 +341,7 @@ function App() {
             onNavigate={handleNavigate}
             propertyTypes={propertyTypes}
             facings={facings}
+            initialFilters={activeParams?.initialFilters}
           />
         )}
 

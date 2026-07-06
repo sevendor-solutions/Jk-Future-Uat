@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const Document_1 = require("../models/Document");
 const auth_1 = require("../middleware/auth");
+const auditLogger_1 = require("../utils/auditLogger");
 const router = (0, express_1.Router)();
 // GET all documents
 router.get("/", async (req, res, next) => {
@@ -42,6 +43,7 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", auth_1.authenticateToken, async (req, res, next) => {
     try {
         const newDoc = await Document_1.Document.create(req.body);
+        await (0, auditLogger_1.logAuditAction)(req, "Document Uploaded", `Uploaded document: "${newDoc.title}" (Category: ${newDoc.category})`, "Success");
         return res.status(201).json({ success: true, data: newDoc });
     }
     catch (error) {
@@ -56,6 +58,7 @@ router.put("/:id", auth_1.authenticateToken, async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Document not found" });
         }
         await doc.update(req.body);
+        await (0, auditLogger_1.logAuditAction)(req, "Document Updated", `Updated document: "${doc.title}" (Category: ${doc.category})`, "Success");
         return res.json({ success: true, data: doc });
     }
     catch (error) {
@@ -69,7 +72,10 @@ router.delete("/:id", auth_1.authenticateToken, async (req, res, next) => {
         if (!doc) {
             return res.status(404).json({ success: false, message: "Document not found" });
         }
+        const title = doc.title;
+        const category = doc.category;
         await doc.destroy();
+        await (0, auditLogger_1.logAuditAction)(req, "Document Deleted", `Deleted document: "${title}" (Category: ${category})`, "Success");
         return res.json({ success: true, message: "Document deleted successfully" });
     }
     catch (error) {

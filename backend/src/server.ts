@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import sequelize from "./config/database";
 
 // Import new route files
@@ -16,8 +17,12 @@ import careersRoutes from "./routes/careers";
 import usersRoutes from "./routes/users";
 import uploadRoutes from "./routes/upload";
 import documentsRoutes from "./routes/documents";
-import siteVisitsRoutes from "./routes/siteVisits";
+import siteVisitsRoutes, { runAutomatedSiteVisitReminders } from "./routes/siteVisits";
 import mailConfigRoutes from "./routes/mailConfig";
+import marketingAgentsRoutes from "./routes/marketingAgents";
+import expensesRoutes from "./routes/expenses";
+import expenseCategoriesRoutes from "./routes/expenseCategories";
+import auditLogsRoutes from "./routes/auditLogs";
 
 // Import seeder
 import { seedDatabase } from "./utils/seeder";
@@ -46,6 +51,10 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/documents", documentsRoutes);
 app.use("/api/site-visits", siteVisitsRoutes);
 app.use("/api/mail-config", mailConfigRoutes);
+app.use("/api/marketing-agents", marketingAgentsRoutes);
+app.use("/api/expenses", expensesRoutes);
+app.use("/api/expense-categories", expenseCategoriesRoutes);
+app.use("/api/audit-logs", auditLogsRoutes);
 
 // Test routes
 app.get("/", (req, res) => res.send("JK Future Infra Backend (Sequelize) is running!"));
@@ -78,6 +87,26 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 const PORT = process.env.PORT || 5000;
 
+// ─── Ensure all upload subfolders exist (never deletes existing) ────────────
+const UPLOAD_SUBFOLDERS = [
+  "properties",
+  "marketing",
+  "marketing_visual_assets",
+  "project_visual_assets",
+  "blogs",
+  "others"
+];
+const uploadsRoot = path.join(__dirname, "../uploads");
+UPLOAD_SUBFOLDERS.forEach((folder) => {
+  const folderPath = path.join(uploadsRoot, folder);
+  if (!fs.existsSync(folderPath)) {
+    fs.mkdirSync(folderPath, { recursive: true });
+    console.log(`📁 Created upload folder: uploads/${folder}`);
+  } else {
+    console.log(`✅ Upload folder exists: uploads/${folder}`);
+  }
+});
+
 // Initialize Database & Start Express Server
 sequelize.sync({ alter: true }) // Synchronize database schemas
   .then(async () => {
@@ -88,6 +117,25 @@ sequelize.sync({ alter: true }) // Synchronize database schemas
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
+      
+      // Start background task timer (every 1 hour) for site visit reminders
+      const ONE_HOUR = 60 * 60 * 1000;
+      setInterval(async () => {
+        try {
+          await runAutomatedSiteVisitReminders();
+        } catch (err) {
+          console.error("Failed to run automated background reminders interval:", err);
+        }
+      }, ONE_HOUR);
+
+      // Also run reminders once immediately on server start to catch up
+      setTimeout(async () => {
+        try {
+          await runAutomatedSiteVisitReminders();
+        } catch (err) {
+          console.error("Failed to run immediate automated reminders on startup:", err);
+        }
+      }, 5000); // Wait 5 seconds after startup to ensure everything is stable
     });
   })
   .catch((err) => {

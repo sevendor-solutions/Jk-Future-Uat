@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const Project_1 = require("../models/Project");
 const auth_1 = require("../middleware/auth");
+const auditLogger_1 = require("../utils/auditLogger");
 const router = (0, express_1.Router)();
 // GET all projects (supports filtering by isMarketing, category, status)
 router.get("/", async (req, res, next) => {
@@ -45,6 +46,8 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", auth_1.authenticateToken, async (req, res, next) => {
     try {
         const newProject = await Project_1.Project.create(req.body);
+        const screenLabel = newProject.isMarketing ? "Marketing Listing" : "Project";
+        await (0, auditLogger_1.logAuditAction)(req, `${screenLabel} Created`, `Created ${screenLabel.toLowerCase()} "${newProject.name}" (ID: ${newProject.id})`, "Success");
         return res.status(201).json({ success: true, data: newProject });
     }
     catch (error) {
@@ -59,6 +62,8 @@ router.put("/:id", auth_1.authenticateToken, async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Project not found" });
         }
         await project.update(req.body);
+        const screenLabel = project.isMarketing ? "Marketing Listing" : "Project";
+        await (0, auditLogger_1.logAuditAction)(req, `${screenLabel} Updated`, `Updated ${screenLabel.toLowerCase()} "${project.name}" (ID: ${project.id})`, "Success");
         return res.json({ success: true, data: project });
     }
     catch (error) {
@@ -72,7 +77,11 @@ router.delete("/:id", auth_1.authenticateToken, async (req, res, next) => {
         if (!project) {
             return res.status(404).json({ success: false, message: "Project not found" });
         }
+        const name = project.name;
+        const id = project.id;
+        const screenLabel = project.isMarketing ? "Marketing Listing" : "Project";
         await project.destroy();
+        await (0, auditLogger_1.logAuditAction)(req, `${screenLabel} Deleted`, `Deleted ${screenLabel.toLowerCase()} "${name}" (ID: ${id})`, "Success");
         return res.json({ success: true, message: "Project deleted successfully" });
     }
     catch (error) {

@@ -68,6 +68,13 @@ export class MailConfig extends Model {
     @Column({
         type: DataType.STRING,
         allowNull: false,
+        defaultValue: "jkfutureinfra@gmail.com"
+    })
+    summaryEmail!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
         defaultValue: "Reminder: Scheduled Site Visit for {projectName}"
     })
     emailSubject!: string;
@@ -75,9 +82,111 @@ export class MailConfig extends Model {
     @Column({
         type: DataType.TEXT,
         allowNull: false,
-        defaultValue: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} will guide you.\n\nWarm regards,\nJK Future Infra Team"
+        defaultValue: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} (Phone: {assignedAgentPhone}) will guide you.\n\nWarm regards,\nJK Future Infra Team"
     })
     emailTemplate!: string;
+
+    // SMS Configurations
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    smsProvider!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    smsApiKey!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    smsSenderId!: string;
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    })
+    smsEnabled!: boolean;
+
+    // WhatsApp Configurations
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    whatsappToken!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    whatsappPhoneId!: string;
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    })
+    whatsappEnabled!: boolean;
+
+    // Database Connection Cache Settings
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: "postgres"
+    })
+    dbType!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    dbHost!: string;
+
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: true,
+        defaultValue: 5432
+    })
+    dbPort!: number;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    dbUser!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    dbPassword!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    dbName!: string;
+
+    // Security/JWT Settings
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    })
+    jwtSecret!: string;
 
     @CreatedAt
     createdAt!: Date;

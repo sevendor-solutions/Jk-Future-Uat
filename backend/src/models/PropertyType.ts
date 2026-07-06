@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeCreate } from "sequelize-typescript";
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeValidate } from "sequelize-typescript";
 
 @Table({ tableName: "property_types" })
 export class PropertyType extends Model {
@@ -21,7 +21,7 @@ export class PropertyType extends Model {
     @UpdatedAt
     updatedAt!: Date;
 
-    @BeforeCreate
+    @BeforeValidate
     static async generateSequentialId(instance: PropertyType) {
         if (!instance.id || instance.id.startsWith('pt_')) {
             const all = await PropertyType.findAll();

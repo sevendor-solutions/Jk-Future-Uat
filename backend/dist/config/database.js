@@ -51,6 +51,10 @@ const Amenity_1 = require("../models/Amenity");
 const Document_1 = require("../models/Document");
 const SiteVisit_1 = require("../models/SiteVisit");
 const MailConfig_1 = require("../models/MailConfig");
+const MarketingAgent_1 = require("../models/MarketingAgent");
+const Expense_1 = require("../models/Expense");
+const ExpenseCategory_1 = require("../models/ExpenseCategory");
+const AuditLog_1 = require("../models/AuditLog");
 dotenv.config();
 const dbType = (process.env.DB_TYPE || "postgres").toLowerCase();
 let sequelize;
@@ -69,7 +73,11 @@ const models = [
     Amenity_1.Amenity,
     Document_1.Document,
     SiteVisit_1.SiteVisit,
-    MailConfig_1.MailConfig
+    MailConfig_1.MailConfig,
+    MarketingAgent_1.MarketingAgent,
+    Expense_1.Expense,
+    ExpenseCategory_1.ExpenseCategory,
+    AuditLog_1.AuditLog
 ];
 console.log(`🔌 Initializing Database Connection for: ${dbType.toUpperCase()}`);
 switch (dbType) {

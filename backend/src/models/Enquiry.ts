@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeCreate } from "sequelize-typescript";
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeValidate } from "sequelize-typescript";
 
 @Table({ tableName: "enquiries" })
 export class Enquiry extends Model {
@@ -71,7 +71,7 @@ export class Enquiry extends Model {
     @UpdatedAt
     updatedAt!: Date;
 
-    @BeforeCreate
+    @BeforeValidate
     static async generateSequentialId(instance: Enquiry) {
         if (!instance.id || instance.id.startsWith('enq_') || instance.id.startsWith('e_')) {
             const all = await Enquiry.findAll();

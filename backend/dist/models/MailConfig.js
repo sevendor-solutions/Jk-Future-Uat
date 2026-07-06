@@ -90,6 +90,14 @@ __decorate([
     (0, sequelize_typescript_1.Column)({
         type: sequelize_typescript_1.DataType.STRING,
         allowNull: false,
+        defaultValue: "jkfutureinfra@gmail.com"
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "summaryEmail", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: false,
         defaultValue: "Reminder: Scheduled Site Visit for {projectName}"
     }),
     __metadata("design:type", String)
@@ -98,10 +106,122 @@ __decorate([
     (0, sequelize_typescript_1.Column)({
         type: sequelize_typescript_1.DataType.TEXT,
         allowNull: false,
-        defaultValue: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} will guide you.\n\nWarm regards,\nJK Future Infra Team"
+        defaultValue: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} (Phone: {assignedAgentPhone}) will guide you.\n\nWarm regards,\nJK Future Infra Team"
     }),
     __metadata("design:type", String)
 ], MailConfig.prototype, "emailTemplate", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "smsProvider", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "smsApiKey", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "smsSenderId", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    }),
+    __metadata("design:type", Boolean)
+], MailConfig.prototype, "smsEnabled", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "whatsappToken", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "whatsappPhoneId", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    }),
+    __metadata("design:type", Boolean)
+], MailConfig.prototype, "whatsappEnabled", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: "postgres"
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "dbType", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "dbHost", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.INTEGER,
+        allowNull: true,
+        defaultValue: 5432
+    }),
+    __metadata("design:type", Number)
+], MailConfig.prototype, "dbPort", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "dbUser", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "dbPassword", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "dbName", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Column)({
+        type: sequelize_typescript_1.DataType.STRING,
+        allowNull: true,
+        defaultValue: ""
+    }),
+    __metadata("design:type", String)
+], MailConfig.prototype, "jwtSecret", void 0);
 __decorate([
     sequelize_typescript_1.CreatedAt,
     __metadata("design:type", Date)

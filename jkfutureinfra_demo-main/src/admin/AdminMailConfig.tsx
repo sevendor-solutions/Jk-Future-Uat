@@ -35,6 +35,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
+  const [summaryEmail, setSummaryEmail] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailTemplate, setEmailTemplate] = useState('');
 
@@ -50,13 +51,14 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
       setDeliveryMode(data.deliveryMode);
       setTriggerWindowDays(data.triggerWindowDays);
       setSendBeforeDays(data.sendBeforeDays);
-      setSmtpHost(data.smtpHost);
-      setSmtpPort(data.smtpPort);
+      setSmtpHost(data.smtpHost || '');
+      setSmtpPort(data.smtpPort || 2525);
       setSmtpUser(data.smtpUser || '');
       setSmtpPass(data.smtpPass || '');
-      setSenderEmail(data.senderEmail);
-      setEmailSubject(data.emailSubject);
-      setEmailTemplate(data.emailTemplate);
+      setSenderEmail(data.senderEmail || '');
+      setSummaryEmail(data.summaryEmail || 'jkfutureinfra@gmail.com');
+      setEmailSubject(data.emailSubject || '');
+      setEmailTemplate(data.emailTemplate || '');
     } catch (err) {
       onAddToast("Failed to load mail configuration.", "error");
     } finally {
@@ -81,6 +83,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
       smtpUser,
       smtpPass,
       senderEmail,
+      summaryEmail,
       emailSubject,
       emailTemplate
     };
@@ -116,14 +119,14 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
     }
   };
 
-  // Compile template for real-time live preview with fake static values
   const compileTemplatePreview = (templateStr: string) => {
     const fakeVars = {
       customerName: "Jane Doe",
       projectName: "JK Emerald Heights",
       visitDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
       visitTime: "14:30",
-      assignedAgent: "G. Anand (Corporate Consultant)",
+      assignedAgent: "G. Anand (Phone: 7654321098)",
+      assignedAgentPhone: "7654321098",
       location: "Gunadala, Vijayawada, Andhra Pradesh"
     };
 
@@ -206,10 +209,11 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
           )}
         </div>
 
-        <div className="grid grid-3 gap-3 mobile-stack">
-          {/* Column 1 & 2: Forms */}
-          <div className="grid-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            
+
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+          {/* Forms Column: 65% width */}
+          <div style={{ flex: '1 1 65%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
             {/* Box 1: Reminder Trigger Rules */}
             <div className="admin-card" style={{ padding: '1.25rem' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
@@ -217,14 +221,14 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
               </h3>
 
               <div className="grid grid-2 gap-2 mobile-stack">
-                <div className="form-group-premium">
-                  <label className="form-label-premium">
+                <div className="form-group">
+                  <label className="form-label">
                     Tracking Range Window (Days)
                     <span className="tooltip-anchor" title="Reminder checks are limited to visits scheduled within this number of days in the future. Check logic ignores further bookings."> <HelpCircle size={12} style={{ color: '#94a3b8', verticalAlign: 'middle', cursor: 'help' }} /></span>
                   </label>
                   <input 
                     type="number" 
-                    className="form-control-premium"
+                    className="form-control"
                     value={triggerWindowDays}
                     onChange={e => setTriggerWindowDays(Number(e.target.value))}
                     min={1}
@@ -233,14 +237,14 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                   />
                 </div>
 
-                <div className="form-group-premium">
-                  <label className="form-label-premium">
+                <div className="form-group">
+                  <label className="form-label">
                     Send Reminder Lead-Time (Days Before)
                     <span className="tooltip-anchor" title="System delivers email reminder exactly this many days before the visit date. e.g. 1 day before."> <HelpCircle size={12} style={{ color: '#94a3b8', verticalAlign: 'middle', cursor: 'help' }} /></span>
                   </label>
                   <input 
                     type="number" 
-                    className="form-control-premium"
+                    className="form-control"
                     value={sendBeforeDays}
                     onChange={e => setSendBeforeDays(Number(e.target.value))}
                     min={1}
@@ -257,10 +261,10 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 <Server size={16} /> Mail Delivery Server (SMTP)
               </h3>
 
-              <div className="form-group-premium">
-                <label className="form-label-premium">Delivery Mode</label>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer' }}>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Delivery Mode</label>
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 'normal' }}>
                     <input 
                       type="radio" 
                       name="deliveryMode" 
@@ -270,7 +274,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                     />
                     Simulation (Logs & Mocks only)
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 'normal' }}>
                     <input 
                       type="radio" 
                       name="deliveryMode" 
@@ -283,85 +287,96 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 </div>
               </div>
 
-              {deliveryMode === 'smtp' && (
-                <div style={{ animation: 'fadeIn 0.2s ease' }}>
-                  <div className="grid grid-3 gap-1.5 mobile-stack" style={{ marginBottom: '1rem' }}>
-                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                      <label className="form-label-premium">SMTP Host</label>
-                      <input 
-                        type="text" 
-                        className="form-control-premium"
-                        value={smtpHost}
-                        onChange={e => setSmtpHost(e.target.value)}
-                        placeholder="e.g. smtp.gmail.com"
-                        required={deliveryMode === 'smtp'}
-                      />
-                    </div>
-                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                      <label className="form-label-premium">SMTP Port</label>
-                      <input 
-                        type="number" 
-                        className="form-control-premium"
-                        value={smtpPort}
-                        onChange={e => setSmtpPort(Number(e.target.value))}
-                        placeholder="e.g. 587 or 465"
-                        required={deliveryMode === 'smtp'}
-                      />
-                    </div>
-                    <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                      <label className="form-label-premium">Sender From Email</label>
-                      <input 
-                        type="email" 
-                        className="form-control-premium"
-                        value={senderEmail}
-                        onChange={e => setSenderEmail(e.target.value)}
-                        placeholder="e.g. info@jkfutureinfra.com"
-                        required={deliveryMode === 'smtp'}
-                      />
-                    </div>
-                  </div>
+              {/* Row 1: SMTP Host – full width */}
+              <div className="form-group">
+                <label className="form-label">SMTP Host</label>
+                <input 
+                  type="text" 
+                  className="form-control"
+                  value={smtpHost}
+                  onChange={e => setSmtpHost(e.target.value)}
+                  placeholder="e.g. autodiscover.secureserver.net"
+                  required={deliveryMode === 'smtp'}
+                />
+              </div>
 
-                  <div className="grid grid-2 gap-2 mobile-stack">
-                    <div className="form-group-premium">
-                      <label className="form-label-premium">SMTP Username</label>
-                      <input 
-                        type="text" 
-                        className="form-control-premium"
-                        value={smtpUser}
-                        onChange={e => setSmtpUser(e.target.value)}
-                        placeholder="SMTP login username"
-                      />
-                    </div>
-                    <div className="form-group-premium" style={{ position: 'relative' }}>
-                      <label className="form-label-premium">SMTP Password</label>
-                      <input 
-                        type={showPassword ? "text" : "password"} 
-                        className="form-control-premium"
-                        value={smtpPass}
-                        onChange={e => setSmtpPass(e.target.value)}
-                        placeholder="SMTP login credentials"
-                        style={{ paddingRight: '40px' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '32px',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: '#64748b',
-                          padding: 0
-                        }}
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
+              {/* Row 2: Port + Sender Email */}
+              <div className="grid grid-2 gap-2" style={{ marginBottom: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">SMTP Port</label>
+                  <input 
+                    type="number" 
+                    className="form-control"
+                    value={smtpPort}
+                    onChange={e => setSmtpPort(Number(e.target.value))}
+                    placeholder="e.g. 443 or 587"
+                    required={deliveryMode === 'smtp'}
+                  />
                 </div>
-              )}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Sender From Email</label>
+                  <input 
+                    type="email" 
+                    className="form-control"
+                    value={senderEmail}
+                    onChange={e => setSenderEmail(e.target.value)}
+                    placeholder="e.g. info@sevendorsolutions.com"
+                    required={deliveryMode === 'smtp'}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label className="form-label">Daily Summary Recipient Email</label>
+                <input 
+                  type="email" 
+                  className="form-control"
+                  value={summaryEmail}
+                  onChange={e => setSummaryEmail(e.target.value)}
+                  placeholder="e.g. jkfutureinfra@gmail.com"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-2 gap-2 mobile-stack">
+                <div className="form-group">
+                  <label className="form-label">SMTP Username</label>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    value={smtpUser}
+                    onChange={e => setSmtpUser(e.target.value)}
+                    placeholder="SMTP login username"
+                  />
+                </div>
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <label className="form-label">SMTP Password</label>
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    className="form-control"
+                    value={smtpPass}
+                    onChange={e => setSmtpPass(e.target.value)}
+                    placeholder="SMTP login credentials"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '32px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      padding: 0
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Box 3: Email Template Editor */}
@@ -370,11 +385,11 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 <FileText size={16} /> Email Subject & Body Template
               </h3>
 
-              <div className="form-group-premium">
-                <label className="form-label-premium">Email Subject Line</label>
+              <div className="form-group">
+                <label className="form-label">Email Subject Line</label>
                 <input 
                   type="text" 
-                  className="form-control-premium"
+                  className="form-control"
                   value={emailSubject}
                   onChange={e => setEmailSubject(e.target.value)}
                   placeholder="Subject line"
@@ -382,10 +397,10 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 />
               </div>
 
-              <div className="form-group-premium" style={{ marginBottom: '0.5rem' }}>
-                <label className="form-label-premium">Email Body Template (Plain Text)</label>
+              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                <label className="form-label">Email Body Template (Plain Text)</label>
                 <textarea 
-                  className="form-control-premium"
+                  className="form-control"
                   style={{ minHeight: '160px', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.5', width: '100%', padding: '0.5rem' }}
                   value={emailTemplate}
                   onChange={e => setEmailTemplate(e.target.value)}
@@ -402,14 +417,15 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                   <code>{`{visitTime}`}</code>
                   <code>{`{location}`}</code>
                   <code>{`{assignedAgent}`}</code>
+                  <code>{`{assignedAgentPhone}`}</code>
                 </div>
               </div>
             </div>
 
           </div>
 
-          {/* Column 3: Live Preview Block */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Preview Sidebar: 35% width */}
+          <div style={{ flex: '0 0 320px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ position: 'sticky', top: '1rem' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', marginBottom: '0.75rem' }}>
                 <Eye size={16} /> Live Rendering Preview
@@ -430,8 +446,13 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 </div>
 
                 {/* Email Body */}
-                <div style={{ padding: '1.25rem', minHeight: '300px', backgroundColor: 'white', fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }}>
-                  {compiledBodyPreview || 'Enter content in the template editor to preview.'}
+                <div style={{ padding: '1.25rem', minHeight: '300px', backgroundColor: 'white', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }}>
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <img src="/src/assets/logo.png" alt="JK Future Infra Logo" style={{ height: '35px' }} />
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>
+                    {compiledBodyPreview || 'Enter content in the template editor to preview.'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -454,13 +475,13 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
             </div>
 
             <form onSubmit={handleSendTest} className="premium-modal-form">
-              <div className="form-group-premium">
-                <label className="form-label-premium">Recipient Email Address</label>
+              <div className="form-group">
+                <label className="form-label">Recipient Email Address</label>
                 <div className="input-with-icon">
                   <Mail size={16} className="input-icon" />
                   <input 
                     type="email" 
-                    className="form-control-premium"
+                    className="form-control" 
                     value={testEmailAddress}
                     onChange={e => setTestEmailAddress(e.target.value)}
                     placeholder="recipient@example.com"

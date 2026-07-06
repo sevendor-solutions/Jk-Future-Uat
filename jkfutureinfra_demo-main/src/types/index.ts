@@ -63,6 +63,7 @@ export interface Project {
   remarks?: string;
   marketingResult?: string;
   isMarketing?: boolean;
+  agentId?: string;
 }
 
 
@@ -106,11 +107,12 @@ export interface Enquiry {
 export interface User {
   id: string;
   username: string;
-  role: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture';
+  role: 'Admin' | 'Moderator' | 'ProjectOwner' | 'MarketingOwner' | 'Architecture' | 'MarketingAgent';
   name: string;
   email: string;
   password?: string;
   allowedScreens?: string[];
+  agentId?: string;
 }
 
 export interface City {
@@ -188,8 +190,76 @@ export interface MailConfig {
   smtpUser: string;
   smtpPass: string;
   senderEmail: string;
+  summaryEmail: string;
   emailSubject: string;
   emailTemplate: string;
+  // SMS Integration
+  smsProvider: string;
+  smsApiKey: string;
+  smsSenderId: string;
+  smsEnabled: boolean;
+  // WhatsApp Integration
+  whatsappToken: string;
+  whatsappPhoneId: string;
+  whatsappEnabled: boolean;
+  // Database Connection cache
+  dbType: string;
+  dbHost: string;
+  dbPort: number;
+  dbUser: string;
+  dbPassword?: string;
+  dbName: string;
+  // JWT
+  jwtSecret: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MarketingAgent {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  designation?: string;
+  photoUrl?: string;
+  status: string; // 'Active' | 'Inactive'
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpenseLineItem {
+  item: string;
+  qty: number;
+  priceUnit: number;
+  taxLabel: string;
+  taxPct: number;
+  amount: number;
+}
+
+export interface Expense {
+  id: string;
+  party: string;
+  location?: string;
+  apartment?: string;
+  projectName?: string;
+  expenseCategory: string;
+  expenseNo?: string;
+  billDate: string;
+  stateOfSupply?: string;
+  lineItems: ExpenseLineItem[];
+  paymentType?: string;
+  referenceNo?: string;
+  roundOff: boolean;
+  gstEnabled?: boolean;
+  totalAmount: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
   createdAt?: string;
   updatedAt?: string;
 }

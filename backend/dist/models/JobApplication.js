@@ -105,7 +105,7 @@ __decorate([
     __metadata("design:type", Date)
 ], JobApplication.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.BeforeCreate,
+    sequelize_typescript_1.BeforeValidate,
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [JobApplication]),
     __metadata("design:returntype", Promise)

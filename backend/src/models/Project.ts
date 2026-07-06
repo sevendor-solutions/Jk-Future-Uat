@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeCreate } from "sequelize-typescript";
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeValidate } from "sequelize-typescript";
 
 export interface TimelineEvent {
   id: string;
@@ -240,6 +240,9 @@ export class Project extends Model {
     @Column(DataType.STRING)
     marketingResult?: string;
 
+    @Column(DataType.STRING)
+    agentId?: string;
+
     @Column({
         type: DataType.BOOLEAN,
         allowNull: false,
@@ -253,7 +256,7 @@ export class Project extends Model {
     @UpdatedAt
     updatedAt!: Date;
 
-    @BeforeCreate
+    @BeforeValidate
     static async generateSequentialId(instance: Project) {
         const prefix = instance.isMarketing ? 'm' : 'p';
         const rawPrefix = instance.isMarketing ? 'm_' : 'p_';

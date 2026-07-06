@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeCreate } from "sequelize-typescript";
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, BeforeValidate } from "sequelize-typescript";
 
 @Table({ tableName: "users" })
 export class User extends Model {
@@ -17,11 +17,17 @@ export class User extends Model {
     username!: string;
 
     @Column({
-        type: DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture"),
+        type: DataType.ENUM("Admin", "Moderator", "ProjectOwner", "MarketingOwner", "Architecture", "MarketingAgent"),
         allowNull: false,
         defaultValue: "Admin"
     })
-    role!: "Admin" | "Moderator" | "ProjectOwner" | "MarketingOwner" | "Architecture";
+    role!: "Admin" | "Moderator" | "ProjectOwner" | "MarketingOwner" | "Architecture" | "MarketingAgent";
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    agentId?: string;
 
     @Column({
         type: DataType.STRING,
@@ -64,7 +70,7 @@ export class User extends Model {
     @UpdatedAt
     updatedAt!: Date;
 
-    @BeforeCreate
+    @BeforeValidate
     static async generateSequentialId(instance: User) {
         if (!instance.id || instance.id.startsWith('u_')) {
             const all = await User.findAll();

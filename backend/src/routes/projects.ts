@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Project } from "../models/Project";
 import { authenticateToken } from "../middleware/auth";
+import { logAuditAction } from "../utils/auditLogger";
 
 const router = Router();
 
@@ -48,6 +49,8 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
         const newProject = await Project.create(req.body);
+        const screenLabel = newProject.isMarketing ? "Marketing Listing" : "Project";
+        await logAuditAction(req, `${screenLabel} Created`, `Created ${screenLabel.toLowerCase()} "${newProject.name}" (ID: ${newProject.id})`, "Success");
         return res.status(201).json({ success: true, data: newProject });
     } catch (error) {
         next(error);
@@ -62,6 +65,8 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Project not found" });
         }
         await project.update(req.body);
+        const screenLabel = project.isMarketing ? "Marketing Listing" : "Project";
+        await logAuditAction(req, `${screenLabel} Updated`, `Updated ${screenLabel.toLowerCase()} "${project.name}" (ID: ${project.id})`, "Success");
         return res.json({ success: true, data: project });
     } catch (error) {
         next(error);
@@ -75,7 +80,11 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!project) {
             return res.status(404).json({ success: false, message: "Project not found" });
         }
+        const name = project.name;
+        const id = project.id;
+        const screenLabel = project.isMarketing ? "Marketing Listing" : "Project";
         await project.destroy();
+        await logAuditAction(req, `${screenLabel} Deleted`, `Deleted ${screenLabel.toLowerCase()} "${name}" (ID: ${id})`, "Success");
         return res.json({ success: true, message: "Project deleted successfully" });
     } catch (error) {
         next(error);

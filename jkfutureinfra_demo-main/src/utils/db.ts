@@ -1,4 +1,4 @@
-import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig } from '../types';
+import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig, MarketingAgent, Expense, ExpenseCategory } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
@@ -348,6 +348,45 @@ export const loginUser = async (username: string, password: User['password']): P
   return json.user;
 };
 
+// ─── Forgot Password OTP Flow ───────────────────────────────────────────────
+
+export const getUserEmailByUsername = async (username: string): Promise<string> => {
+  const res = await fetch(`${API_BASE_URL}/auth/user-email/${encodeURIComponent(username.trim())}`);
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.message || 'Username not found');
+  return json.email;
+};
+
+export const requestPasswordOtp = async (email: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.message || 'Failed to send OTP');
+};
+
+export const verifyPasswordOtp = async (email: string, otp: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp })
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.message || 'OTP verification failed');
+};
+
+export const resetPassword = async (email: string, otp: string, newPassword: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp, newPassword })
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.message || 'Password reset failed');
+};
+
 // Image Uploads
 export const uploadImage = async (file: File, module: string = 'others'): Promise<string> => {
   const formData = new FormData();
@@ -587,6 +626,121 @@ export const sendTestEmail = async (toEmail: string): Promise<void> => {
   if (!res.ok || !json.success) {
     throw new Error(json.message || 'API request failed');
   }
+};
+
+// Marketing Agents
+export const getMarketingAgents = async (): Promise<MarketingAgent[]> => {
+  const res = await fetch(`${API_BASE_URL}/marketing-agents`);
+  return handleResponse(res);
+};
+
+export const addMarketingAgent = async (agent: Omit<MarketingAgent, 'id'>): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/marketing-agents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(agent)
+  });
+  await handleResponse(res);
+};
+
+export const updateMarketingAgent = async (agent: MarketingAgent): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/marketing-agents/${agent.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(agent)
+  });
+  await handleResponse(res);
+};
+
+export const deleteMarketingAgent = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/marketing-agents/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
+};
+
+// ─── Expenses API ─────────────────────────────────────────────────────────────
+export const getExpenses = async (): Promise<Expense[]> => {
+  const res = await fetch(`${API_BASE_URL}/expenses`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const addExpense = async (expense: Omit<Expense, 'id'>): Promise<Expense> => {
+  const res = await fetch(`${API_BASE_URL}/expenses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify(expense)
+  });
+  return handleResponse(res);
+};
+
+export const updateExpense = async (expense: Expense): Promise<Expense> => {
+  const res = await fetch(`${API_BASE_URL}/expenses/${expense.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify(expense)
+  });
+  return handleResponse(res);
+};
+
+export const deleteExpense = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/expenses/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
+};
+
+// ─── Expense Categories Master API ────────────────────────────────────────────
+export const getExpenseCategories = async (): Promise<ExpenseCategory[]> => {
+  const res = await fetch(`${API_BASE_URL}/expense-categories`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const addExpenseCategory = async (category: Omit<ExpenseCategory, 'id'>): Promise<ExpenseCategory> => {
+  const res = await fetch(`${API_BASE_URL}/expense-categories`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify(category)
+  });
+  return handleResponse(res);
+};
+
+export const deleteExpenseCategory = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
+};
+
+export const getAuditLogs = async (): Promise<any[]> => {
+  const res = await fetch(`${API_BASE_URL}/audit-logs`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+};
+
+export const clearAuditLogs = async (): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/audit-logs`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
 };
 
 if (typeof window !== 'undefined') {

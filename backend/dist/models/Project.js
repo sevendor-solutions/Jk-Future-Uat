@@ -290,6 +290,10 @@ __decorate([
     __metadata("design:type", String)
 ], Project.prototype, "marketingResult", void 0);
 __decorate([
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Project.prototype, "agentId", void 0);
+__decorate([
     (0, sequelize_typescript_1.Column)({
         type: sequelize_typescript_1.DataType.BOOLEAN,
         allowNull: false,
@@ -306,7 +310,7 @@ __decorate([
     __metadata("design:type", Date)
 ], Project.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.BeforeCreate,
+    sequelize_typescript_1.BeforeValidate,
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Project]),
     __metadata("design:returntype", Promise)

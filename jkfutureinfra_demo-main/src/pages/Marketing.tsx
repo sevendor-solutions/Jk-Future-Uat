@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Project, ProjectCategory, PropertyType, Facing } from '../types';
-import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home } from 'lucide-react';
+import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText, Share2 } from 'lucide-react';
 
 interface MarketingProps {
   category: ProjectCategory;
@@ -9,6 +9,13 @@ interface MarketingProps {
   onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: string | null, params?: any) => void;
   propertyTypes?: PropertyType[];
   facings?: Facing[];
+  initialFilters?: {
+    city?: string | null;
+    location?: string | null;
+    facing?: string | null;
+    propertyType?: string | null;
+    agent?: string | null;
+  };
 }
 
 export const Marketing: React.FC<MarketingProps> = ({
@@ -17,19 +24,42 @@ export const Marketing: React.FC<MarketingProps> = ({
   projects,
   onNavigate,
   propertyTypes = [],
-  facings = []
+  facings = [],
+  initialFilters
 }) => {
   // Filter States
   const [search, setSearch] = useState<string>('');
   const [priceSort, setPriceSort] = useState<string>('default');
-  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
-  const [selectedFacings, setSelectedFacings] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>(() =>
+    initialFilters?.propertyType ? [initialFilters.propertyType] : []
+  );
+  const [selectedFacings, setSelectedFacings] = useState<string[]>(() =>
+    initialFilters?.facing ? [initialFilters.facing] : []
+  );
+  const [selectedCities, setSelectedCities] = useState<string[]>(() =>
+    initialFilters?.city ? [initialFilters.city] : []
+  );
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(() =>
+    initialFilters?.location ? [initialFilters.location] : []
+  );
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string>(() =>
+    initialFilters?.agent ? initialFilters.agent : ''
+  );
+
+  useEffect(() => {
+    if (initialFilters) {
+      if (initialFilters.propertyType) setSelectedPropertyTypes([initialFilters.propertyType]);
+      if (initialFilters.facing) setSelectedFacings([initialFilters.facing]);
+      if (initialFilters.city) setSelectedCities([initialFilters.city]);
+      if (initialFilters.location) setSelectedLocations([initialFilters.location]);
+      if (initialFilters.agent) setSelectedAgent(initialFilters.agent);
+    }
+  }, [initialFilters]);
   
   // Mobile drawer controls
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Dynamic filter options from master database
   const propertyTypesOptions = useMemo(() => {
@@ -88,11 +118,30 @@ export const Marketing: React.FC<MarketingProps> = ({
     setSelectedCities([]);
     setSelectedLocations([]);
     setSelectedSubCategories([]);
+    setSelectedAgent('');
+  };
+
+  const handleShareFilters = () => {
+    const params = new URLSearchParams();
+    params.set('page', 'marketing');
+    params.set('category', category);
+    if (siteCategory) params.set('siteCategory', siteCategory);
+    
+    if (selectedCities.length > 0) params.set('city', selectedCities[0]);
+    if (selectedLocations.length > 0) params.set('location', selectedLocations[0]);
+    if (selectedFacings.length > 0) params.set('facing', selectedFacings[0]);
+    if (selectedPropertyTypes.length > 0) params.set('propertyType', selectedPropertyTypes[0]);
+    if (selectedAgent) params.set('agent', selectedAgent);
+
+    const shareUrl = `${window.location.origin}/?${params.toString()}`;
+    navigator.clipboard.writeText(shareUrl);
+    alert('Shareable filtered search link copied to clipboard!');
   };
 
   // Filter projects matching this category/subcategory initially
   const matchingProjects = useMemo(() => {
     return projects.filter(p => {
+      if (!p) return false;
       if (p.isActive === false) return false;
       if (p.category !== category) return false;
       if (category === 'Sites' && siteCategory) {
@@ -124,9 +173,12 @@ export const Marketing: React.FC<MarketingProps> = ({
   const finalFilteredProjects = useMemo(() => {
     return matchingProjects.filter(p => {
       // 1. Keyword Search
-      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
-                            p.location.toLowerCase().includes(search.toLowerCase()) ||
-                            p.description.toLowerCase().includes(search.toLowerCase());
+      const name = p.name || '';
+      const loc = p.location || '';
+      const desc = p.description || '';
+      const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || 
+                            loc.toLowerCase().includes(search.toLowerCase()) ||
+                            desc.toLowerCase().includes(search.toLowerCase());
       
       // 2. City Checkbox
       const matchesCity = selectedCities.length === 0 || (p.city && selectedCities.includes(p.city));
@@ -159,14 +211,16 @@ export const Marketing: React.FC<MarketingProps> = ({
         matchesPropertyTypes = selectedPropertyTypes.some(t => pTypes.includes(t));
       }
 
-      return matchesSearch && matchesCity && matchesLocation && matchesFacing && matchesSubCategory && matchesPropertyTypes;
+      const matchesAgent = !selectedAgent || p.agentId === selectedAgent;
+
+      return matchesSearch && matchesCity && matchesLocation && matchesFacing && matchesSubCategory && matchesPropertyTypes && matchesAgent;
     }).sort((a, b) => {
       if (priceSort === 'low-high') return a.priceValue - b.priceValue;
       if (priceSort === 'high-low') return b.priceValue - a.priceValue;
       if (priceSort === 'alphabetical') return a.name.localeCompare(b.name);
       return 0;
     });
-  }, [matchingProjects, search, priceSort, selectedCities, selectedLocations, selectedFacings, selectedSubCategories, selectedPropertyTypes]);
+  }, [matchingProjects, search, priceSort, selectedCities, selectedLocations, selectedFacings, selectedSubCategories, selectedPropertyTypes, selectedAgent]);
 
   // Marketing text configs
   const marketingInfo = useMemo(() => {
@@ -384,6 +438,32 @@ export const Marketing: React.FC<MarketingProps> = ({
                 <option value="alphabetical">Name: A to Z</option>
               </select>
 
+              {/* View Toggle Buttons */}
+              <div className="sap-mkt-view-toggle" style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                <button 
+                  className={viewMode === 'grid' ? 'active' : ''} 
+                  onClick={() => setViewMode('grid')} 
+                  title="Grid View"
+                  style={{
+                    padding: '0.55rem 0.75rem', border: 'none', background: viewMode === 'grid' ? '#0b2c5c' : '#fff',
+                    color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
+                  }}
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button 
+                  className={viewMode === 'list' ? 'active' : ''} 
+                  onClick={() => setViewMode('list')} 
+                  title="List View"
+                  style={{
+                    padding: '0.55rem 0.75rem', border: 'none', background: viewMode === 'list' ? '#0b2c5c' : '#fff',
+                    color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
+                  }}
+                >
+                  <List size={15} />
+                </button>
+              </div>
+
               {/* Mobile Filter Toggle Button */}
               <button 
                 className="btn btn-outline btn-sm mobile-filters-btn flex align-center gap-0.5"
@@ -444,6 +524,23 @@ export const Marketing: React.FC<MarketingProps> = ({
             {renderFilterPanel('Facings', 'facing', facingsOptions, selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
             {renderFilterPanel('Cities', 'city', citiesList, selectedCities, toggleCity, clearCities, '#3a9ad9')}
             {renderFilterPanel('Locations', 'location', locationsList, selectedLocations, toggleLocation, clearLocations, '#e68a00')}
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.25rem', padding: '0.25rem' }}>
+              <button 
+                onClick={handleShareFilters} 
+                className="btn btn-secondary flex align-center justify-center gap-0.5" 
+                style={{ fontSize: '0.85rem', padding: '0.5rem', width: '100%' }}
+              >
+                <Share2 size={14} /> Share Filtered View
+              </button>
+              <button 
+                onClick={handleResetFilters} 
+                className="btn btn-outline flex align-center justify-center gap-0.5" 
+                style={{ fontSize: '0.85rem', padding: '0.5rem', width: '100%', borderColor: '#cbd5e1', color: '#475569' }}
+              >
+                Reset Filters
+              </button>
+            </div>
           </aside>
 
           {/* Main Results Column */}
@@ -453,16 +550,20 @@ export const Marketing: React.FC<MarketingProps> = ({
                 <p className="text-lg font-bold text-muted mb-2">No projects matching your current filters</p>
                 <p className="text-sm text-muted">We have new developments starting soon. Contact our advisory desk for exclusive options.</p>
                 <button onClick={handleResetFilters} className="btn btn-primary mt-2">Reset Filters</button>
-              </div>
-            ) : (
+              </div>            ) : viewMode === 'grid' ? (
               <div className="grid grid-3 gap-3">
                 {finalFilteredProjects.map(project => {
                   return (
                     <div key={project.id} className="property-card flex flex-col" style={{ height: '100%', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
                       <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>
-                        <img src={project.images[0]} alt={project.name} className="property-card-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <span className={`property-card-badge badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
-                        <span className="property-card-price">{project.priceRange}</span>
+                        <img 
+                          src={project.images && project.images[0] ? project.images[0] : 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&auto=format&fit=crop&q=60'} 
+                          alt={project.name || 'Project'} 
+                          className="property-card-img" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                        <span className={`property-card-badge badge badge-${project.status ? project.status.toLowerCase() : 'ongoing'}`}>{project.status || 'Ongoing'}</span>
+                        <span className="property-card-price">{project.priceRange || 'Contact Us'}</span>
                       </div>
                       <div className="property-card-content flex-1 flex flex-col justify-between p-3" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '1.25rem' }}>
                         <div>
@@ -530,7 +631,65 @@ export const Marketing: React.FC<MarketingProps> = ({
                     </div>
                   </div>
                 );
-              })}
+               })}
+              </div>
+            ) : (
+              /* ── LIST VIEW ── */
+              <div className="mkt-list-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {finalFilteredProjects.map(project => {
+                  const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
+                  const elevationImage = (project.images && project.images[0]) || '';
+                  return (
+                    <div key={project.id} className="mkt-list-card" style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                      {/* Left: Image Column */}
+                      <div className="mkt-list-img-col" style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div className="mkt-list-img-wrap" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ position: 'relative', height: '180px', cursor: 'pointer', overflow: 'hidden' }}>
+                          <img 
+                            src={elevationImage || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&auto=format&fit=crop&q=60'} 
+                            alt={project.name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                          <span className={`mkt-list-status-badge badge-${project.status ? project.status.toLowerCase() : 'ongoing'}`} style={{ position: 'absolute', top: 10, left: 10, padding: '3px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: '#fff', background: project.status === 'Completed' ? '#059669' : '#3b82f6' }}>
+                            {project.status}
+                          </span>
+                        </div>
+                        {/* Media Action Buttons */}
+                        <div className="mkt-list-media-btns" style={{ display: 'flex', borderTop: '1px solid var(--border-color)' }}>
+                          <button className="mkt-media-btn" onClick={() => elevationImage && window.open(elevationImage, '_blank')} style={{ flex: 1, padding: '0.45rem', fontSize: '0.68rem', fontWeight: 700, border: 'none', background: '#0b2c5c', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            <Eye size={11} /> Render
+                          </button>
+                          <button className="mkt-media-btn" onClick={() => specPlanImage && window.open(specPlanImage, '_blank')} style={{ flex: 1, padding: '0.45rem', fontSize: '0.68rem', fontWeight: 700, border: 'none', borderLeft: '1px solid rgba(255,255,255,0.15)', background: '#0b2c5c', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            <FileText size={11} /> Specs Sheet
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Right: Details Column */}
+                      <div className="mkt-list-details" style={{ flex: 1, padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {project.category}{project.subCategory ? ` | ${project.subCategory}` : ''}
+                          </span>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--secondary)' }}>{project.priceRange || 'Contact Us'}</span>
+                        </div>
+                        <h3 className="mkt-list-title" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', margin: 0 }}>{project.name}</h3>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} className="text-secondary" /> {project.location}</p>
+                        
+                        <div className="mkt-list-specs-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.35rem 0', margin: '0.2rem 0' }}>
+                          {project.facing && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Compass size={11} className="text-secondary" /> {project.facing}</span>}
+                          {project.floors !== undefined && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Building2 size={11} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors}`}</span>}
+                          {!!project.unitsCount && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Home size={11} className="text-secondary" /> {project.unitsCount} Units</span>}
+                        </div>
+                        
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>{project.description}</p>
+                        
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.25rem' }}>
+                          <button onClick={() => onNavigate('project-details', null, null, { id: project.id })} className="btn btn-xs btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}>Explore Project <ArrowRight size={13} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
