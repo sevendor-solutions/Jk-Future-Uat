@@ -753,6 +753,29 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       <input type="file" accept="image/*" onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpec} />
                     </label>
                   </div>
+                  {/* Blueprint preview */}
+                  {specImage && (
+                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', position: 'relative' }}>
+                      <img
+                        src={specImage}
+                        alt="Blueprint preview"
+                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSpecImage('')}
+                        title="Remove"
+                        style={{
+                          position: 'absolute', top: '-6px', right: '-6px',
+                          background: '#dc2626', color: '#fff', border: 'none',
+                          borderRadius: '50%', width: '18px', height: '18px',
+                          cursor: 'pointer', fontSize: '10px', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                        }}
+                      >✕</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -771,6 +794,36 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       <input type="file" accept="image/*" multiple onChange={handleImagesUpload} style={{ display: 'none' }} disabled={uploadingImages} />
                     </label>
                   </div>
+                  {/* Property images preview grid */}
+                  {imageUrl && imageUrl.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {imageUrl.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
+                        <div key={idx} style={{ position: 'relative', display: 'inline-flex' }}>
+                          <img
+                            src={url}
+                            alt={`Property image ${idx + 1}`}
+                            style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
+                              setImageUrl(newUrls);
+                            }}
+                            title="Remove"
+                            style={{
+                              position: 'absolute', top: '-6px', right: '-6px',
+                              background: '#dc2626', color: '#fff', border: 'none',
+                              borderRadius: '50%', width: '18px', height: '18px',
+                              cursor: 'pointer', fontSize: '10px', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                            }}
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">

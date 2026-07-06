@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity } from '../types';
 import { Edit2, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
-import { addMarketing, updateMarketing, deleteMarketing, uploadImage } from '../utils/db';
+import { addMarketing, updateMarketing, deleteMarketing, uploadImage, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -33,7 +33,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
   // Upload states
   const [uploadingElevation, setUploadingElevation] = useState(false);
-  const [uploadingSpec, setUploadingSpec] = useState(false);
+  const [uploadingSpecImages, setUploadingSpecImages] = useState(false);
 
   const handleElevationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -51,15 +51,17 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
   const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    setUploadingSpec(true);
+    setUploadingSpecImages(true);
     try {
-      const url = await uploadImage(e.target.files[0], 'MMS');
-      setSpecImage(url);
-      onAddToast('Blueprint image uploaded successfully!', 'success');
+      const urls = await uploadMultipleImages(e.target.files, 'MMS');
+      const currentUrls = specImage.split(',').map(u => u.trim()).filter(Boolean);
+      const combined = [...currentUrls, ...urls].join(', ');
+      setSpecImage(combined);
+      onAddToast('Blueprint image(s) uploaded successfully!', 'success');
     } catch (err: any) {
       onAddToast(err.message || 'Blueprint upload failed', 'error');
     } finally {
-      setUploadingSpec(false);
+      setUploadingSpecImages(false);
     }
   };
 
@@ -238,13 +240,28 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         { id: 't_init', date: 'Jan 2026', title: 'Plotting & Inception', desc: 'Venture registration and layout development.' }
       ],
       floorPlans: (() => {
-        const plans = editingProperty ? [...editingProperty.floorPlans] : [
-          { id: 'f_init', title: 'Master Layout Plan', image: specImage || '' }
-        ];
-        if (plans.length > 0 && plans[0].id === 'f_init') {
-          plans[0] = { ...plans[0], image: specImage || '' };
+        const specUrls = specImage.split(',').map(u => u.trim()).filter(Boolean);
+        if (editingProperty) {
+          const plans = [...editingProperty.floorPlans];
+          // Replace/rebuild floor plans from specImage urls
+          if (specUrls.length > 0) {
+            return specUrls.map((url, i) => ({
+              id: plans[i]?.id || `f_spec_${Date.now()}_${i}`,
+              title: i === 0 ? 'Master Layout Plan' : `Blueprint ${i + 1}`,
+              image: url
+            }));
+          }
+          return plans;
+        } else {
+          if (specUrls.length > 0) {
+            return specUrls.map((url, i) => ({
+              id: `f_spec_${Date.now()}_${i}`,
+              title: i === 0 ? 'Master Layout Plan' : `Blueprint ${i + 1}`,
+              image: url
+            }));
+          }
+          return [{ id: 'f_init', title: 'Master Layout Plan', image: '' }];
         }
-        return plans;
       })(),
       priceRange,
       priceValue: Number(priceValue) || 0,
@@ -472,7 +489,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       <option value="Villas">Villas</option>
                       <option value="Individual Houses">Individual Houses</option>
                       <option value="Duplex">Duplex</option>
-                      <option value="Sites">Sites / Plots</option>
+                      <option value="Sites">Sites / Plots / Land</option>
                     </select>
                   </div>
 
@@ -490,6 +507,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         <option value="Panchayati Approved Sites">Panchayati Approved Sites</option>
                         <option value="VUDA Approved Sites">VUDA Approved Sites</option>
                         <option value="Ventures">Ventures</option>
+                        <option value="Agriculture Lands">Agriculture Lands</option>
+                        <option value="Non-Agri Lands">Non-Agri Lands</option>
+                        <option value="Industrial Sites">Industrial Sites</option>
                       </select>
                     </div>
                   ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
@@ -808,42 +828,96 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
                 {/* Section 4: Media & Details */}
                 <div className="modal-section-title">Media &amp; Details</div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Elevation Render Image</label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="https://images.unsplash.com/... or upload"
-                        value={imageUrl}
-                        onChange={e => setImageUrl(e.target.value)}
-                        style={{ marginBottom: 0, flex: 1 }}
-                      />
-                      <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        {uploadingElevation ? 'Uploading...' : 'Upload'}
-                        <input type="file" accept="image/*" onChange={handleElevationUpload} style={{ display: 'none' }} disabled={uploadingElevation} />
-                      </label>
-                    </div>
-                  </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Specifications Blueprint Image</label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="https://images.unsplash.com/... or upload"
-                        value={specImage}
-                        onChange={e => setSpecImage(e.target.value)}
-                        style={{ marginBottom: 0, flex: 1 }}
-                      />
-                      <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        {uploadingSpec ? 'Uploading...' : 'Upload'}
-                        <input type="file" accept="image/*" onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpec} />
-                      </label>
-                    </div>
+                {/* Elevation Render Image */}
+                <div className="form-group">
+                  <label className="form-label">Elevation Render Image</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="https://images.unsplash.com/... or upload"
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      style={{ marginBottom: 0, flex: 1 }}
+                    />
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {uploadingElevation ? 'Uploading...' : 'Upload'}
+                      <input type="file" accept="image/*" onChange={handleElevationUpload} style={{ display: 'none' }} disabled={uploadingElevation} />
+                    </label>
                   </div>
+                  {/* Elevation preview */}
+                  {imageUrl && (
+                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', position: 'relative' }}>
+                      <img
+                        src={imageUrl}
+                        alt="Elevation preview"
+                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl('')}
+                        title="Remove"
+                        style={{
+                          position: 'absolute', top: '-6px', right: '-6px',
+                          background: '#dc2626', color: '#fff', border: 'none',
+                          borderRadius: '50%', width: '18px', height: '18px',
+                          cursor: 'pointer', fontSize: '10px', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                        }}
+                      >✕</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Specifications Blueprint Image — multi-upload */}
+                <div className="form-group">
+                  <label className="form-label">Specifications Blueprint Image</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      placeholder="URL1, URL2... or upload files below"
+                      value={specImage}
+                      onChange={e => setSpecImage(e.target.value)}
+                      style={{ marginBottom: 0 }}
+                    />
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {uploadingSpecImages ? 'Uploading...' : 'Upload Blueprint Images'}
+                      <input type="file" accept="image/*" multiple onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpecImages} />
+                    </label>
+                  </div>
+                  {/* Blueprint images preview grid */}
+                  {specImage && specImage.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {specImage.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
+                        <div key={idx} style={{ position: 'relative', display: 'inline-flex' }}>
+                          <img
+                            src={url}
+                            alt={`Blueprint ${idx + 1}`}
+                            style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newUrls = specImage.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
+                              setSpecImage(newUrls);
+                            }}
+                            title="Remove"
+                            style={{
+                              position: 'absolute', top: '-6px', right: '-6px',
+                              background: '#dc2626', color: '#fff', border: 'none',
+                              borderRadius: '50%', width: '18px', height: '18px',
+                              cursor: 'pointer', fontSize: '10px', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                            }}
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
